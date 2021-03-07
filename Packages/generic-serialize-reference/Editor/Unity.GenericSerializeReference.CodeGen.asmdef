@@ -1,0 +1,23 @@
+{
+    "name": "Unity.GenericSerializeReference.CodeGen",
+    "rootNamespace": "GenericSerializeReference.Editor",
+    "references": [
+        "GUID:e68bcd447d2cc4be2b6d31311e6ca7e9"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Mono.Cecil.dll",
+        "Mono.Cecil.Mdb.dll",
+        "Mono.Cecil.Pdb.dll",
+        "Mono.Cecil.Rocks.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
