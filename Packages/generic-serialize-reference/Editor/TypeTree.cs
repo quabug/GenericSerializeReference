@@ -52,7 +52,6 @@ namespace GenericSerializeReference
         }
 
         private readonly Dictionary<MetadataToken, TypeTreeNode> _typeTreeNodeMap;
-        private readonly Dictionary<MetadataToken, TypeTreeNode> _interfaceImplementations;
 
         /// <summary>
         /// Create a type-tree from a collection of <paramref name="sourceTypes"/>
@@ -61,7 +60,6 @@ namespace GenericSerializeReference
         public TypeTree([NotNull] IEnumerable<TypeDefinition> sourceTypes)
         {
             _typeTreeNodeMap = new Dictionary<MetadataToken, TypeTreeNode>();
-            _interfaceImplementations = new Dictionary<MetadataToken, TypeTreeNode>();
             foreach (var type in sourceTypes) CreateTypeTree(type);
         }
 
@@ -84,10 +82,7 @@ namespace GenericSerializeReference
         /// <exception cref="ArgumentException"></exception>
         public IEnumerable<TypeDefinition> GetDerived(TypeDefinition baseType)
         {
-            TypeTreeNode node = null;
-            if (baseType.IsInterface) _interfaceImplementations.TryGetValue(baseType.MetadataToken, out node);
-            else _typeTreeNodeMap.TryGetValue(baseType.MetadataToken, out node);
-
+            _typeTreeNodeMap.TryGetValue(baseType.MetadataToken, out var node);
             if (node == null) throw new ArgumentException($"{baseType} is not part of this tree");
             return GetDescendantsAndSelf(node).Skip(1).Select(n => n.Type);
 
@@ -124,10 +119,10 @@ namespace GenericSerializeReference
             foreach (var @interface in uniqueInterfaces)
             {
                 var token = @interface.MetadataToken;
-                if (!_interfaceImplementations.TryGetValue(token, out var implementations))
+                if (!_typeTreeNodeMap.TryGetValue(token, out var implementations))
                 {
                     implementations = new TypeTreeNode(@interface);
-                    _interfaceImplementations.Add(token, implementations);
+                    _typeTreeNodeMap.Add(token, implementations);
                 }
                 implementations.Subs.Add(self);
             }
