@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -11,7 +10,7 @@ using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
 using UnityEngine;
 
-namespace GenericSerializeReference.Editor
+namespace GenericSerializeReference
 {
     public class GenericSerializeReferencePostProcessor : ILPostProcessor
     {
@@ -36,24 +35,24 @@ namespace GenericSerializeReference.Editor
             var module = assemblyDefinition.MainModule;
 
             var modified = false;
-            foreach (var (type, field, attribute) in
+            foreach (var (type, property, attribute) in
                 from type in assemblyDefinition.MainModule.GetAllTypes()
                 where type.IsClass && !type.IsAbstract
-                from field in type.Fields.ToArray() // able to change `Fields` during looping
-                where field.FieldType.IsGenericInstance
-                from attribute in GetAttributesOf<GenericSerializeReferenceAttribute>(field)
-                select (type, field, attribute)
+                from property in type.Properties.ToArray() // able to change `Properties` during looping
+                where property.PropertyType.IsGenericInstance
+                from attribute in GetAttributesOf<GenericSerializeReferenceAttribute>(property)
+                select (type, property, attribute)
             )
             {
-                var serializedFieldInterface = CreateWrapperClass(field);
+                var serializedFieldInterface = CreateWrapperClass(property);
                 logger.Debug($"generate nested class with interface {serializedFieldInterface.FullName}");
                 //.field private class GenericSerializeReference.Tests.TestMonoBehavior/__generic_serialize_reference_GenericInterface__/IBase _GenericInterface
                 //  .custom instance void [UnityEngine.CoreModule]UnityEngine.SerializeReference::.ctor()
                 //    = (01 00 00 00 )
-                var serializedField = new FieldDefinition($"_{field.Name}", FieldAttributes.Private, serializedFieldInterface);
+                var serializedField = new FieldDefinition($"_{property.Name}", FieldAttributes.Private, serializedFieldInterface);
                 serializedField.CustomAttributes.Add(CreateCustomAttribute<SerializeReference>());
-                field.DeclaringType.Fields.Add(serializedField);
-                logger.Debug($"add field into {field.DeclaringType.FullName}");
+                property.DeclaringType.Fields.Add(serializedField);
+                logger.Debug($"add field into {property.DeclaringType.FullName}");
                 modified = true;
             }
 
@@ -102,33 +101,26 @@ namespace GenericSerializeReference.Editor
                 attribute.AttributeType.FullName == typeof(T).FullName;
         }
 
-        private TypeDefinition/*interface*/ CreateWrapperClass(FieldDefinition field)
+        private TypeDefinition/*interface*/ CreateWrapperClass(PropertyDefinition property)
         {
             // .class nested public abstract sealed auto ansi beforefieldinit
-            //   __generic_serialize_reference_Generic__
+            //   <$PropertyName>__generic_serialize_reference
             //     extends [mscorlib]System.Object
             var typeAttributes = TypeAttributes.Class |
                                  TypeAttributes.Sealed |
                                  TypeAttributes.Abstract |
+                                 TypeAttributes.NestedPrivate |
                                  TypeAttributes.BeforeFieldInit;
-            typeAttributes |= (field.IsPublic ? TypeAttributes.NestedPublic : TypeAttributes.NestedPrivate);
-            var wrapper = new TypeDefinition(
-                ""
-                , $"__generic_serialize_reference_{field.Name}__"
-                , typeAttributes
-            );
-            wrapper.BaseType = field.Module.ImportReference(typeof(System.Object));
-            field.DeclaringType.NestedTypes.Add(wrapper);
+            var wrapper = new TypeDefinition("", $"<{property.Name}>__generic_serialize_reference", typeAttributes);
+            wrapper.BaseType = property.Module.ImportReference(typeof(System.Object));
+            property.DeclaringType.NestedTypes.Add(wrapper);
 
             // .class interface nested public abstract auto ansi
             //   IBase
-            // {
-            // } // end of class IBase
-            var interfaceAttributes = TypeAttributes.Class
-                                      | TypeAttributes.Interface
-                                      | TypeAttributes.NestedPublic
-                                      | TypeAttributes.Abstract
-                                  ;
+            var interfaceAttributes = TypeAttributes.Class |
+                                      TypeAttributes.Interface |
+                                      TypeAttributes.NestedPublic |
+                                      TypeAttributes.Abstract;
             var baseInterface = new TypeDefinition("", "IBase", interfaceAttributes);
             wrapper.NestedTypes.Add(baseInterface);
             return baseInterface;

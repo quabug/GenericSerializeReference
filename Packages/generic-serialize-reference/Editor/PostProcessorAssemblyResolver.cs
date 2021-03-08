@@ -7,7 +7,7 @@ using System.Threading;
 using JetBrains.Annotations;
 using Mono.Cecil;
 
-namespace GenericSerializeReference.Editor
+namespace GenericSerializeReference
 {
     internal class PostProcessorAssemblyResolver : IAssemblyResolver
     {

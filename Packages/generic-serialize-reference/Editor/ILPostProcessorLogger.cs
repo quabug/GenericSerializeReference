@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.CompilationPipeline.Common.Diagnostics;
 
-namespace GenericSerializeReference.Editor
+namespace GenericSerializeReference
 {
     public class ILPostProcessorLogger
     {

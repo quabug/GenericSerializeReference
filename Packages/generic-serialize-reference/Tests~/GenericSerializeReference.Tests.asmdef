@@ -2,7 +2,8 @@
     "name": "GenericSerializeReference.Tests",
     "rootNamespace": "GenericSerializeReference.Tests",
     "references": [
-        "GUID:e68bcd447d2cc4be2b6d31311e6ca7e9"
+        "GUID:e68bcd447d2cc4be2b6d31311e6ca7e9",
+        "GUID:63b7bab1fdf9c49858cf30deda1e2c00"
     ],
     "includePlatforms": [
         "Editor"
@@ -11,7 +12,11 @@
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-        "nunit.framework.dll"
+        "nunit.framework.dll",
+        "Mono.Cecil.dll",
+        "Mono.Cecil.Pdb.dll",
+        "Mono.Cecil.Mdb.dll",
+        "Mono.Cecil.Rocks.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [],

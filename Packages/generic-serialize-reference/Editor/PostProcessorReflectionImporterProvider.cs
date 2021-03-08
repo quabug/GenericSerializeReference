@@ -2,7 +2,7 @@ using System.Linq;
 using System.Reflection;
 using Mono.Cecil;
 
-namespace GenericSerializeReference.Editor
+namespace GenericSerializeReference
 {
     internal class PostProcessorReflectionImporterProvider : IReflectionImporterProvider
     {
