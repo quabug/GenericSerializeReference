@@ -8,15 +8,15 @@ namespace GenericSerializeReference
     {
         public readonly List<DiagnosticMessage> Messages;
 
-        public ILPostProcessorLogger(List<DiagnosticMessage> messages)
+        public ILPostProcessorLogger(List<DiagnosticMessage> messages = null)
         {
             Messages = messages;
         }
 
         public void Error(string message)
         {
-            if (Messages == null) Console.WriteLine("error: " + message);
-            else Messages.Add(new DiagnosticMessage {DiagnosticType = DiagnosticType.Error, MessageData = message});
+            if (Messages == null) throw new ApplicationException(message);
+            Messages.Add(new DiagnosticMessage {DiagnosticType = DiagnosticType.Error, MessageData = message});
         }
 
         public void Warning(string message)

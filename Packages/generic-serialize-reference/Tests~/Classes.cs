@@ -1,4 +1,5 @@
 using System;
+using UnityEngine.Scripting;
 
 namespace GenericSerializeReference.Tests
 {
@@ -44,6 +45,7 @@ namespace GenericSerializeReference.Tests
 
     public static class MultipleGeneric
     {
+        [Preserve]
         public interface IInterface<T, U> {}
 
         [Serializable]

@@ -30,6 +30,11 @@ namespace GenericSerializeReference
             return Resolve(name, new ReaderParameters(ReadingMode.Deferred));
         }
 
+        public AssemblyDefinition Resolve(string name)
+        {
+            return Resolve(new AssemblyNameReference(name, new Version()), new ReaderParameters(ReadingMode.Deferred));
+        }
+
         public AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters)
         {
             lock (_cache)
@@ -59,11 +64,13 @@ namespace GenericSerializeReference
 
         private string FindFile(AssemblyNameReference name)
         {
-            var fileName = _references.FirstOrDefault(r => Path.GetFileName(r) == name.Name + ".dll");
-            if (fileName != null) return fileName;
-
-            // perhaps the type comes from an exe instead
-            fileName = _references.FirstOrDefault(r => Path.GetFileName(r) == name.Name + ".exe");
+            var fileName = _references.FirstOrDefault(r =>
+            {
+                return Path.GetFileName(r) == name.Name + ".dll"
+                       || Path.GetFileName(r) == name.Name + ".exe"
+                       || Path.GetFileNameWithoutExtension(r) == Path.GetFileNameWithoutExtension(name.Name)
+                    ;
+            });
             if (fileName != null) return fileName;
 
             //Unfortunately the current ICompiledAssembly API only provides direct references.

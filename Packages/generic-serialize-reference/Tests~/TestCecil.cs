@@ -1,64 +1,72 @@
 using System;
 using System.Linq;
-using Mono.Cecil;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace GenericSerializeReference.Tests
 {
-    public class TestCecil
+    public class TestCecil : CecilTestBase
     {
-        private AssemblyDefinition _assemblyDefinition;
-
-        [SetUp]
-        public void SetUp()
+        [Test]
+        public void should_resolve_unity_type()
         {
-            var assemblyLocation = GetType().Assembly.Location;
-            _assemblyDefinition = AssemblyDefinition.ReadAssembly(assemblyLocation, new ReaderParameters
-            {
-                AssemblyResolver = new PostProcessorAssemblyResolver(new []
-                {
-                    GetType().Assembly.Location
-                    , typeof(object).Assembly.Location
-                })
-            });
+            var type = ImportReference<ExitPlayMode>().Resolve();
+            Assert.AreEqual(1, type.Interfaces.Count);
+            var interfaceReference = type.Interfaces.First();
+            Assert.NotNull(interfaceReference);
+            Assert.NotNull(interfaceReference.InterfaceType);
+            Assert.NotNull(interfaceReference.InterfaceType.Resolve());
         }
 
-        interface IGeneric<T, U> {}
-        class TInt<T> : IGeneric<T, int> {}
-        class IntU<U> : IGeneric<int, U> {}
-        class IntInt : IGeneric<int, int> {}
-        class TFloat<T> : IGeneric<T, float> {}
-        class AnotherTFloat<T> : IGeneric<T, float> {}
-        class TIntSub : TInt<int> {}
+        [Test]
+        public void should_get_generic_type_definition_from_generic_type()
+        {
+            var typeDef = ImportReference<MultipleGeneric.IInterface<int, int>>().Resolve();
+            Assert.NotNull(typeDef);
+        }
 
         [Test]
-        public void should()
+        public void should_resolve_generic_types_in_another_assembly()
         {
-            var module = _assemblyDefinition.MainModule;
-            var types = new[]
-                {
-                    typeof(TInt<int>),
-                    typeof(IntU<int>),
-                    typeof(IntInt),
-                    typeof(TFloat<int>),
-                    typeof(AnotherTFloat<int>),
-                    typeof(IGeneric<int, int>),
-                    typeof(TIntSub),
-                    typeof(IGeneric<,>),
-                }.ToDictionary(type => type, type => module.ImportReference(type));
-            foreach (var t in types)
-            {
-                var type = t.Value;
-                Debug.Log($"{type.Name}: {type.Resolve().MetadataToken} {type.Resolve().Interfaces.FirstOrDefault()?.InterfaceType.Resolve().MetadataToken}");
-            }
+            var typeRef = ImportReference<AnotherAssembly.IGeneric<int,int>>();
+            Debug.Log($"{typeRef} {typeRef.Module}");
+            Assert.NotNull(typeRef);
+            Assert.NotNull(typeRef.Resolve());
+        }
 
-            Debug.Log($"{types[typeof(TIntSub)].Resolve().BaseType.Resolve().MetadataToken}");
+        [Test]
+        public void should_resolve_types_in_another_assembly()
+        {
+            var typeRef = ImportReference<AnotherAssembly>();
+            Debug.Log($"{typeRef} {typeRef.Module}");
+            Assert.NotNull(typeRef);
+            Assert.NotNull(typeRef.Resolve());
+        }
 
-            Assert.AreEqual(types[typeof(IGeneric<int, int>)].Resolve().MetadataToken,
-                types[typeof(IntInt)].Resolve().Interfaces[0].InterfaceType.Resolve().MetadataToken);
+        class AnotherGeneric : AnotherAssembly.Generic {}
 
-            Assert.IsTrue(types[typeof(TIntSub)].Resolve().HasInterfaces);
+        [Test]
+        public void should_resolve_types_inherited_from_another_assembly()
+        {
+            var typeRef = ImportReference<AnotherGeneric>();
+            Debug.Log($"{typeRef} {typeRef.Module}");
+            Assert.NotNull(typeRef);
+            Assert.NotNull(typeRef.Resolve());
+
+            var baseType = typeRef.Resolve().BaseType;
+            Debug.Log($"{baseType} {baseType.Module}");
+            Assert.NotNull(baseType);
+            Assert.NotNull(baseType.Resolve());
+        }
+
+        [Test]
+        public void should_resolve_types_in_system_assembly()
+        {
+            var typeRef = ImportReference<Attribute>();
+            Debug.Log($"{typeRef} {typeRef.Module}");
+            Assert.NotNull(typeRef);
+            Assert.NotNull(typeRef.Resolve());
         }
     }
 }

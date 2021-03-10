@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using JetBrains.Annotations;
 using Mono.Cecil;
 
@@ -32,12 +33,42 @@ namespace GenericSerializeReference
             {
                 if (ReferenceEquals(x, y)) return true;
                 if (x == null || y == null) return false;
-                return x.MetadataToken.Equals(y.MetadataToken);
+                return new TypeKey(x).Equals(new TypeKey(y));
             }
 
             public int GetHashCode(TypeDefinition obj)
             {
-                return obj.MetadataToken.GetHashCode();
+                return new TypeKey(obj).GetHashCode();
+            }
+        }
+
+        readonly struct TypeKey : IEquatable<TypeKey>
+        {
+            public readonly string ModuleName;
+            public readonly MetadataToken Token;
+
+            public TypeKey(TypeDefinition typeDefinition)
+            {
+                ModuleName = typeDefinition.Module.Name;
+                Token = typeDefinition.MetadataToken;
+            }
+
+            public bool Equals(TypeKey other)
+            {
+                return ModuleName == other.ModuleName && Token.Equals(other.Token);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is TypeKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (ModuleName.GetHashCode() * 397) ^ Token.GetHashCode();
+                }
             }
         }
 
@@ -46,12 +77,19 @@ namespace GenericSerializeReference
             public ISet<TypeDefinition> Interfaces { get; } = new HashSet<TypeDefinition>(new TypeDefinitionTokenComparer());
             public TypeDefinition Type { get; }
             public TypeTreeNode Base { get; set; }
-            public List<TypeTreeNode> Subs = new List<TypeTreeNode>();
+            public List<TypeTreeNode> Subs { get; } = new List<TypeTreeNode>();
 
             public TypeTreeNode(TypeDefinition type) => Type = type;
+
+            public override string ToString()
+            {
+                return $"{Type.Name}({Type.Module.Name})";
+            }
         }
 
-        private readonly Dictionary<MetadataToken, TypeTreeNode> _typeTreeNodeMap;
+        private readonly Dictionary<TypeKey, TypeTreeNode> _typeTreeNodeMap;
+
+        private readonly ILPostProcessorLogger _logger = new ILPostProcessorLogger();
 
         /// <summary>
         /// Create a type-tree from a collection of <paramref name="sourceTypes"/>
@@ -59,8 +97,8 @@ namespace GenericSerializeReference
         /// <param name="sourceTypes">The source types of tree.</param>
         public TypeTree([NotNull] IEnumerable<TypeDefinition> sourceTypes)
         {
-            _typeTreeNodeMap = new Dictionary<MetadataToken, TypeTreeNode>();
-            foreach (var type in sourceTypes) CreateTypeTree(type);
+            _typeTreeNodeMap = new Dictionary<TypeKey, TypeTreeNode>();
+            foreach (var type in sourceTypes.Where(t => t.IsClass || t.IsInterface)) CreateTypeTree(type);
         }
 
         // TODO:
@@ -82,7 +120,7 @@ namespace GenericSerializeReference
         /// <exception cref="ArgumentException"></exception>
         public IEnumerable<TypeDefinition> GetDerived(TypeDefinition baseType)
         {
-            _typeTreeNodeMap.TryGetValue(baseType.MetadataToken, out var node);
+            _typeTreeNodeMap.TryGetValue(new TypeKey(baseType), out var node);
             if (node == null) throw new ArgumentException($"{baseType} is not part of this tree");
             return GetDescendantsAndSelf(node).Skip(1).Select(n => n.Type);
 
@@ -97,16 +135,49 @@ namespace GenericSerializeReference
             }
         }
 
+        public override string ToString()
+        {
+            var builder = new StringBuilder();
+            foreach (var pair in _typeTreeNodeMap)
+            {
+                if (pair.Value.Base == null)
+                {
+                    var root = pair.Value;
+                    ToString(root, builder);
+                }
+            }
+            return builder.ToString();
+
+            void ToString(TypeTreeNode node, StringBuilder builder, int indent = 0)
+            {
+                for (var i = 0; i < indent; i++) builder.Append("    ");
+                builder.AppendLine(node.ToString());
+                foreach (var child in node.Subs) ToString(child, builder, indent + 1);
+            }
+        }
+
         TypeTreeNode CreateTypeTree(TypeDefinition type)
         {
             if (type == null) return null;
-            if (_typeTreeNodeMap.TryGetValue(type.MetadataToken, out var node)) return node;
+            if (_typeTreeNodeMap.TryGetValue(new TypeKey(type), out var node)) return node;
 
             var self = new TypeTreeNode(type);
             foreach (var @interface in type.Interfaces)
-                self.Interfaces.Add(@interface.InterfaceType.Resolve());
+            {
+                // HACK: some interface cannot be resolved? has been stripped by Unity?
+                //       e.g. the interface `IEditModeTestYieldInstruction` of `ExitPlayMode`
+                //            will resolve to null
+                var interfaceDefinition = @interface.InterfaceType.Resolve();
+                if (interfaceDefinition == null)
+                    _logger.Warning($"Invalid interface definition {@interface.InterfaceType}({@interface.InterfaceType.Module}) on {type}");
+                else
+                    self.Interfaces.Add(interfaceDefinition);
+            }
 
-            var parent = CreateTypeTree(type.BaseType?.Resolve());
+            var baseTypeDef = type.BaseType?.Resolve();
+            if (baseTypeDef == null && type.BaseType != null)
+                _logger.Warning($"Invalid base type definition {type.BaseType}({type.BaseType.Module}) on {type.Name}");
+            var parent = CreateTypeTree(baseTypeDef);
             var uniqueInterfaces = new HashSet<TypeDefinition>(self.Interfaces, new TypeDefinitionTokenComparer());
             if (parent != null)
             {
@@ -118,15 +189,24 @@ namespace GenericSerializeReference
 
             foreach (var @interface in uniqueInterfaces)
             {
-                var token = @interface.MetadataToken;
-                if (!_typeTreeNodeMap.TryGetValue(token, out var implementations))
+                var typeKey = new TypeKey(@interface);
+                if (!_typeTreeNodeMap.TryGetValue(typeKey, out var implementations))
                 {
                     implementations = new TypeTreeNode(@interface);
-                    _typeTreeNodeMap.Add(token, implementations);
+                    _typeTreeNodeMap.Add(typeKey, implementations);
                 }
                 implementations.Subs.Add(self);
             }
-            _typeTreeNodeMap.Add(type.MetadataToken, self);
+
+            try
+            {
+                _typeTreeNodeMap.Add(new TypeKey(type), self);
+            }
+            catch
+            {
+                var duplicate = _typeTreeNodeMap[new TypeKey(type)];
+                _logger.Error($"Duplicate type? {type} {duplicate.Type}");
+            }
             return self;
         }
     }
