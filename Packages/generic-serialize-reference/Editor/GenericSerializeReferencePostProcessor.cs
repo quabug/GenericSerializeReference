@@ -87,7 +87,10 @@ namespace GenericSerializeReference
                     , FieldAttributes.Private
                     , serializedFieldInterface
                 );
+                var backingField = property.DeclaringType.Fields.First(field => field.Name == $"<{property.Name}>k__BackingField");
                 serializedField.CustomAttributes.Add(CreateCustomAttribute<SerializeReference>());
+                foreach (var customAttribute in backingField.CustomAttributes)
+                    serializedField.CustomAttributes.Add(customAttribute);
                 property.DeclaringType.Fields.Add(serializedField);
                 logger.Debug($"add field into {property.DeclaringType.FullName}");
                 modified = true;
@@ -128,21 +131,26 @@ namespace GenericSerializeReference
 
                 foreach (var derivedDef in derivedTypes)
                 {
+                    var baseCtor = derivedDef.GetConstructors().FirstOrDefault(ctor => !ctor.HasParameters);
+                    if (baseCtor == null) continue;
+                    var baseCtorRef = module.ImportReference(baseCtor);
+
                     var derivedReference = module.ImportReference(derivedDef);
                     try
                     {
                         var genericArguments = derivedDef.ResolveGenericArguments(property.PropertyType);
                         if (genericArguments.All(arg => !arg.IsGenericParameter))
                         {
-                            logger.Debug($"generate {derivedReference.ToReadableName()} : {property.PropertyType.ToReadableName()}");
                             var generated = GenerateDerivedClass(derivedReference, genericArguments);
+                            generated.AddEmptyCtor(baseCtorRef);
+                            logger.Debug($"generate {generated.ToReadableName()} : {property.PropertyType.ToReadableName()}");
                             generated.Interfaces.Add(new InterfaceImplementation(baseInterface));
                             wrapper.NestedTypes.Add(generated);
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        logger.Debug($"cannot generate {derivedReference.ToReadableName()} : {property.PropertyType.ToReadableName()}");
+                        logger.Debug($"cannot generate {derivedReference.ToReadableName()} : {property.PropertyType.ToReadableName()}: {ex}");
                     }
                 }
                 return baseInterface;

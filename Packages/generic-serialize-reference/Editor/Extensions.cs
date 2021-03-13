@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Mono.Collections.Generic;
 
 namespace GenericSerializeReference
@@ -85,6 +87,28 @@ namespace GenericSerializeReference
                    lhs.MetadataToken == rhs.MetadataToken &&
                    lhs.Module.Name == rhs.Module.Name
                 ;
+        }
+
+
+        //.method public hidebysig specialname rtspecialname instance void
+        //  .ctor() cil managed
+        //{
+        //  .maxstack 8
+
+        //  IL_0000: ldarg.0      // this
+        //  IL_0001: call         instance void class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>::.ctor()
+        //  IL_0006: nop
+        //  IL_0007: ret
+
+        //} // end of method Object::.ctor
+        public static void AddEmptyCtor(this TypeDefinition type, MethodReference baseCtor)
+        {
+            var attributes = MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName;
+            var ctor = new MethodDefinition(".ctor", attributes, baseCtor.ReturnType);
+            ctor.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_0));
+            ctor.Body.Instructions.Add(Instruction.Create(OpCodes.Call, baseCtor));
+            ctor.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+            type.Methods.Add(ctor);
         }
     }
 }
