@@ -6,6 +6,7 @@ namespace GenericSerializeReference
 {
     public class ILPostProcessorLogger
     {
+        public LogLevel LogLevel = LogLevel.Info;
         public readonly List<DiagnosticMessage> Messages;
 
         public ILPostProcessorLogger(List<DiagnosticMessage> messages = null)
@@ -21,17 +22,20 @@ namespace GenericSerializeReference
 
         public void Warning(string message)
         {
+            if (LogLevel > LogLevel.Warning) return;
             if (Messages == null) Console.WriteLine("warning: " + message);
             else Messages.Add(new DiagnosticMessage {DiagnosticType = DiagnosticType.Warning, MessageData = message});
         }
 
         public void Info(string message)
         {
+            if (LogLevel > LogLevel.Info) return;
             Console.WriteLine("info: " + message);
         }
 
         public void Debug(string message)
         {
+            if (LogLevel > LogLevel.Debug) return;
             Console.WriteLine("debug: " + message);
         }
     }

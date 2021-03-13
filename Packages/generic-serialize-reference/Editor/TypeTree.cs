@@ -118,21 +118,35 @@ namespace GenericSerializeReference
         /// <param name="baseType"></param>
         /// <returns>Any type of classes derived from <paramref name="baseType"/> directly or indirectly.</returns>
         /// <exception cref="ArgumentException"></exception>
-        public IEnumerable<TypeDefinition> GetDerived(TypeDefinition baseType)
+        public IEnumerable<TypeDefinition> GetAllDerived(TypeDefinition baseType)
         {
             _typeTreeNodeMap.TryGetValue(new TypeKey(baseType), out var node);
             if (node == null) throw new ArgumentException($"{baseType} is not part of this tree");
             return GetDescendantsAndSelf(node).Skip(1).Select(n => n.Type);
 
-            IEnumerable<TypeTreeNode> GetDescendantsAndSelf(TypeTreeNode node)
+            IEnumerable<TypeTreeNode> GetDescendantsAndSelf(TypeTreeNode self)
             {
-                yield return node;
+                yield return self;
                 foreach (var childNode in
-                    from sub in node.Subs
+                    from sub in self.Subs
                     from type in GetDescendantsAndSelf(sub)
                     select type
                 ) yield return childNode;
             }
+        }
+
+        /// <summary>
+        /// Get directly derived class type of <paramref name="baseType"/>.
+        /// Ignore generic type argument if <paramref name="baseType"/> is a generic class with certain type argument.
+        /// </summary>
+        /// <param name="baseType"></param>
+        /// <returns>Any type of classes derived from <paramref name="baseType"/> directly.</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public IEnumerable<TypeDefinition> GetDirectDerived(TypeDefinition baseType)
+        {
+            _typeTreeNodeMap.TryGetValue(new TypeKey(baseType), out var node);
+            if (node == null) throw new ArgumentException($"{baseType} is not part of this tree");
+            return node.Subs.Select(sub => sub.Type);
         }
 
         public override string ToString()
@@ -143,16 +157,16 @@ namespace GenericSerializeReference
                 if (pair.Value.Base == null)
                 {
                     var root = pair.Value;
-                    ToString(root, builder);
+                    ToString(root);
                 }
             }
             return builder.ToString();
 
-            void ToString(TypeTreeNode node, StringBuilder builder, int indent = 0)
+            void ToString(TypeTreeNode node, int indent = 0)
             {
                 for (var i = 0; i < indent; i++) builder.Append("    ");
                 builder.AppendLine(node.ToString());
-                foreach (var child in node.Subs) ToString(child, builder, indent + 1);
+                foreach (var child in node.Subs) ToString(child, indent + 1);
             }
         }
 

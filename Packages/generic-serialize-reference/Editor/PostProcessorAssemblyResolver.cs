@@ -65,12 +65,7 @@ namespace GenericSerializeReference
         private string FindFile(AssemblyNameReference name)
         {
             var fileName = _references.FirstOrDefault(r =>
-            {
-                return Path.GetFileName(r) == name.Name + ".dll"
-                       || Path.GetFileName(r) == name.Name + ".exe"
-                       || Path.GetFileNameWithoutExtension(r) == Path.GetFileNameWithoutExtension(name.Name)
-                    ;
-            });
+                r == name.Name || Path.GetFileName(r) == name.Name + ".dll" || Path.GetFileName(r) == name.Name + ".exe");
             if (fileName != null) return fileName;
 
             //Unfortunately the current ICompiledAssembly API only provides direct references.

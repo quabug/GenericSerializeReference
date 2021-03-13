@@ -56,7 +56,7 @@ namespace GenericSerializeReference.Tests
         }
 
         [Serializable]
-        public class SubObject<T, U> : Object<T, U>
+        public class SubObject<U, T> : Object<T, U>
         {
             public T[] SubValueT;
             public U[] SubValueU;
@@ -64,6 +64,12 @@ namespace GenericSerializeReference.Tests
 
         [Serializable]
         public class PartialObject<T> : Object<T, int>
+        {
+            public double ValueDouble;
+        }
+
+        [Serializable]
+        public class NonGeneric : Object<float, int>, IInterface<int, int>
         {
             public double ValueDouble;
         }

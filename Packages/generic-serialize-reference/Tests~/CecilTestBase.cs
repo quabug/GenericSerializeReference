@@ -7,6 +7,7 @@ namespace GenericSerializeReference.Tests
     public class CecilTestBase
     {
         protected AssemblyDefinition _assemblyDefinition;
+        protected ModuleDefinition _module;
 
         [SetUp]
         public void SetUp()
@@ -21,6 +22,7 @@ namespace GenericSerializeReference.Tests
                     , typeof(AnotherAssembly).Assembly.Location
                 })
             });
+            _module = _assemblyDefinition.MainModule;
             OnSetUp();
         }
 

@@ -67,3 +67,4 @@ Assets/Plugins/Animancer/Examples.meta
 
 # OS
 .DS_Store
+.vsconfig

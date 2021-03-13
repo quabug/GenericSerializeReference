@@ -119,7 +119,7 @@ namespace GenericSerializeReference.Tests
         void CheckDerived(Type @base, params Type[] types)
         {
             var tokens = _tree
-                .GetDerived(_module.ToTypeDefinition(@base))
+                .GetAllDerived(_module.ToTypeDefinition(@base))
                 .Select(type => type.MetadataToken)
                 .ToArray()
             ;

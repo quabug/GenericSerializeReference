@@ -31,6 +31,8 @@ namespace GenericSerializeReference
         {
             var logger = new ILPostProcessorLogger(new List<DiagnosticMessage>());
             var (assembly, referenceAssemblies) = LoadAssemblyDefinition(compiledAssembly, name => name.StartsWith("Library/ScriptAssemblies"));
+            var loggerAttributes = GetAttributesOf<GenericSerializeReferenceLoggerAttribute>(assembly);
+            if (loggerAttributes.Any()) logger.LogLevel = (LogLevel)loggerAttributes.First().ConstructorArguments[0].Value;
             logger.Info($"process GenericSerializeReference on {assembly.Name.Name}({string.Join(",", referenceAssemblies.Select(r => r.Name.Name))})");
             try
             {
@@ -80,8 +82,11 @@ namespace GenericSerializeReference
                 //.field private class GenericSerializeReference.Tests.TestMonoBehavior/__generic_serialize_reference_GenericInterface__/IBase _GenericInterface
                 //  .custom instance void [UnityEngine.CoreModule]UnityEngine.SerializeReference::.ctor()
                 //    = (01 00 00 00 )
-                var serializedField = new FieldDefinition($"_{property.Name}", FieldAttributes.Private,
-                    serializedFieldInterface);
+                var serializedField = new FieldDefinition(
+                    $"_{property.Name}"
+                    , FieldAttributes.Private
+                    , serializedFieldInterface
+                );
                 serializedField.CustomAttributes.Add(CreateCustomAttribute<SerializeReference>());
                 property.DeclaringType.Fields.Add(serializedField);
                 logger.Debug($"add field into {property.DeclaringType.FullName}");
@@ -117,10 +122,57 @@ namespace GenericSerializeReference
                 wrapper.NestedTypes.Add(baseInterface);
 
                 logger.Debug($"get derived {property.PropertyType.Module} {property.PropertyType} {property.PropertyType.Resolve()}");
-                // var derivedTypes = typeTree.GetDerived(property.PropertyType.Resolve());
-                // logger.Debug($"create {string.Join(",", derivedTypes)}");
+                var propertyTypeDefinition = property.PropertyType.Resolve();
+                var derivedTypes = typeTree.GetDirectDerived(propertyTypeDefinition);
+                logger.Debug($"create {string.Join(",", derivedTypes)}");
 
+                foreach (var derivedDef in derivedTypes)
+                {
+                    var derivedReference = module.ImportReference(derivedDef);
+                    try
+                    {
+                        var genericArguments = derivedDef.ResolveGenericArguments(property.PropertyType);
+                        if (genericArguments.All(arg => !arg.IsGenericParameter))
+                        {
+                            logger.Debug($"generate {derivedReference.ToReadableName()} : {property.PropertyType.ToReadableName()}");
+                            var generated = GenerateDerivedClass(derivedReference, genericArguments);
+                            generated.Interfaces.Add(new InterfaceImplementation(baseInterface));
+                            wrapper.NestedTypes.Add(generated);
+                        }
+                    }
+                    catch
+                    {
+                        logger.Debug($"cannot generate {derivedReference.ToReadableName()} : {property.PropertyType.ToReadableName()}");
+                    }
+                }
                 return baseInterface;
+            }
+
+            TypeDefinition GenerateDerivedClass(TypeReference baseType, IReadOnlyList<TypeReference> genericArguments)
+            {
+                // .class nested public auto ansi beforefieldinit
+                //   Object
+                //     extends class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>
+                //     implements GenericSerializeReference.Tests.TestMonoBehavior/IBase
+                // {
+
+                //   .method public hidebysig specialname rtspecialname instance void
+                //     .ctor() cil managed
+                //   {
+                //     .maxstack 8
+
+                //     IL_0000: ldarg.0      // this
+                //     IL_0001: call         instance void class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>::.ctor()
+                //     IL_0006: nop
+                //     IL_0007: ret
+
+                //   } // end of method Object::.ctor
+                // } // end of class Object
+                var className = baseType.Name.Split('`')[0];
+                var classAttributes = TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.BeforeFieldInit;
+                var type = new TypeDefinition("", className, classAttributes);
+                type.BaseType = baseType.MakeGenericInstanceType(genericArguments.ToArray());
+                return type;
             }
         }
 
