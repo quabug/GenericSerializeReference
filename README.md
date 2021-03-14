@@ -12,6 +12,12 @@ public class MyMonoBehavior : MonoBehaviour
 ```
 ![image](https://user-images.githubusercontent.com/683655/111064372-b47b6280-84ee-11eb-90c2-22cfbdc65cc0.png)
 
+# Requirement
+Unity3D 2020.2+ (not test the version below)
+
+# Installation
+Openupm: `openupm add com.quabug.generic-serialize-reference`
+
 # Limitations
 - Only types from referenced assemblies could be show up in inspector.
 - Not support `struct` type.
