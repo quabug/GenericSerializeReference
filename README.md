@@ -1,4 +1,4 @@
-Like `SerializeReference` but works for generic type.
+Like [`SerializeReference`](https://docs.unity3d.com/ScriptReference/SerializeReference.html) but works for generic type.
 
 ```c#
 public interface IMyInterface<T> {}
