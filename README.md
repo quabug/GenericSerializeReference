@@ -16,7 +16,7 @@ public class MyMonoBehavior : MonoBehaviour
 Unity3D 2020.2+ (not test the version below)
 
 ## Installation
-[Openupm](https://openupm.com/packages/com.quabug.generic-serialize-reference/): `openupm add com.quabug.generic-serialize-reference`
+[OpenUPM](https://openupm.com/packages/com.quabug.generic-serialize-reference/): `openupm add com.quabug.generic-serialize-reference`
 
 ## Limitations
 - Only types from referenced assemblies could be show up in inspector. (usually this is not a big deal when writing game code, but become a major drawback when writing a library)
