@@ -1,5 +1,3 @@
-# [GenericSerializeReference] attribute to serialize generic property in Unity3D
-
 Like [`SerializeReference`](https://docs.unity3d.com/ScriptReference/SerializeReference.html) but works on generic property.
 
 ```c#
