@@ -1,3 +1,5 @@
+# [GenericSerializeReference] attribute to serialize generic property in Unity3D
+
 Like [`SerializeReference`](https://docs.unity3d.com/ScriptReference/SerializeReference.html) but works on generic property.
 
 ```c#
@@ -12,23 +14,23 @@ public class MyMonoBehavior : MonoBehaviour
 ```
 ![image](https://user-images.githubusercontent.com/683655/111064372-b47b6280-84ee-11eb-90c2-22cfbdc65cc0.png)
 
-# Requirement
+## Requirement
 Unity3D 2020.2+ (not test the version below)
 
-# Installation
+## Installation
 Openupm: `openupm add com.quabug.generic-serialize-reference`
 
-# Limitations
+## Limitations
 - Only types from referenced assemblies could be show up in inspector. (usually this is not a big deal when writing game code, but become a major drawback when writing a library)
 - Not support `struct` type.
 - Not support generic field.
 - Not support variance.
 
-# Costs
+## Costs
 - Extra time to generate IL code while building assembly
 - Extra memory space to store a generated field for each property.
 
-# How it works
+## How it works
 ```c#
 public class MyMonoBehavior : MonoBehaviour
 {
@@ -67,7 +69,7 @@ public class MyMonoBehavior : MonoBehaviour
 }
 ```
 
-# License
+## License
 [MIT](https://github.com/quabug/GenericSerializeReference/blob/main/LICENSE)
 
 Drawer modified from [TextusGames](https://github.com/TextusGames)'s [UnitySerializedReferenceUI](https://github.com/TextusGames/UnitySerializedReferenceUI) with [MIT](https://github.com/TextusGames/UnitySerializedReferenceUI/blob/master/Assets/Textus/SerializeReferenceUI/LICENSE.txt) license
