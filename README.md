@@ -22,6 +22,7 @@ Openupm: `openupm add com.quabug.generic-serialize-reference`
 - Only types from referenced assemblies could be show up in inspector.
 - Not support `struct` type.
 - Not support generic field.
+- Not support variance.
 
 # Costs
 - Extra time to generate IL code while building assembly
