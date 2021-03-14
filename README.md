@@ -19,7 +19,7 @@ Unity3D 2020.2+ (not test the version below)
 Openupm: `openupm add com.quabug.generic-serialize-reference`
 
 # Limitations
-- Only types from referenced assemblies could be show up in inspector.
+- Only types from referenced assemblies could be show up in inspector. (usually this is not a big deal when writing game code, but become a major drawback when writing a library)
 - Not support `struct` type.
 - Not support generic field.
 - Not support variance.
