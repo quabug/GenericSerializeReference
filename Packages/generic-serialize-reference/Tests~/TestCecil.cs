@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Runtime.Serialization;
 using Mono.Cecil;
+using Mono.Cecil.Rocks;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -134,5 +135,19 @@ namespace GenericSerializeReference.Tests
             Assert.IsTrue(CecilExtension.IsTypeEqual(ImportReference<float>(), arguments3[1]));
             Assert.IsTrue(CecilExtension.IsTypeEqual(ImportReference<double>(), arguments3[2]));
         }
+        //
+        // [Test]
+        // public void should_get_all_types()
+        // {
+        //     var type = ImportReference<Test.MultipleGenericObject>().Resolve();
+        //     var allTypes = type.GetSelfAndAllDeclaringTypes();
+        // }
+        //
+        // [Test]
+        // public void should_create_a_new_type_and_create_from_activator()
+        // {
+        //     var obj = ImportReference(typeof(MultipleGeneric.Object<,>)).Resolve();
+        //     var genericType = obj.CreateTypeReference(new[] {_module.TypeSystem.Int32, _module.TypeSystem.Int32});
+        // }
     }
 }

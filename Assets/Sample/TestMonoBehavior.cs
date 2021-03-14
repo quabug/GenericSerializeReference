@@ -1,7 +1,6 @@
-using CareBoo.Serially;
+using System;
 using GenericSerializeReference;
 using UnityEngine;
-using UnityEngine.Scripting;
 
 [assembly: GenericSerializeReferenceLogger(LogLevel.Debug)]
 
@@ -9,21 +8,40 @@ namespace GenericSerializeReference.Tests
 {
     public class TestMonoBehavior : MonoBehaviour
     {
+        public class Object : MultipleGeneric.IInterface<int, float>
+        {
+            public int V;
+        }
+
         [GenericSerializeReference]
         [field: SerializeReferenceButton]
-        public MultipleGeneric.IInterface<int, float> GenericInterface { get; set; }
+        public MultipleGeneric.IInterface<int, float> IntFloat { get; set; }
 
-        public int Int { get; set; }
+        [GenericSerializeReference]
+        [field: SerializeReferenceButton]
+        public MultipleGeneric.IInterface<float, int> FloatInt { get; set; }
 
-        // [SerializeReference]
-        // private <GenericInterface>__generic_serialize_reference.IBase _GenericInterface;
-        // public static class <GenericInterface>__generic_serialize_reference
-        // {
-            public interface IBase {}
-            public class Object : MultipleGeneric.Object<int, float>, IBase {}
-            // public class SubObject : MultipleGeneric.SubObject<float, int>, IBase {}
-            // public class PartialObject : MultipleGeneric.PartialObject<float>, IBase {}
-            // public class NonGeneric : MultipleGeneric.NonGeneric, IBase {}
-        // }
+        [GenericSerializeReference]
+        [field: SerializeReferenceButton]
+        public MultipleGeneric.IInterface<float, int> IntInt { get; set; }
+
+        [GenericSerializeReference]
+        [field: SerializeReferenceButton]
+        public SingleGeneric.IInterface<int> Int { get; set; }
+
+        [GenericSerializeReference]
+        [field: SerializeReferenceButton]
+        public SingleGeneric.IInterface<double> Double { get; set; }
+
+        private void Awake()
+        {
+            Debug.Log($"{IntFloat.GetType()}: \n {JsonUtility.ToJson(IntFloat)}");
+            Debug.Log("set to null");
+            IntFloat = null;
+            Debug.Log(IntFloat == null ? "null" : IntFloat.ToString());
+            Debug.Log($"set to {nameof(TestMonoBehavior)}.{nameof(Object)}");
+            IntFloat = new Object { V = 5 };
+            Debug.Log($"{IntFloat.GetType()}: \n {JsonUtility.ToJson(IntFloat)}");
+        }
     }
 }

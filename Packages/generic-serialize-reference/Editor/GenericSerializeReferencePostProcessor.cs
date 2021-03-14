@@ -77,15 +77,73 @@ namespace GenericSerializeReference
                 select (type, property, attribute)
             )
             {
+                if (property.GetMethod == null)
+                {
+                    logger.Warning($"Cannot process on property {property} without getter");
+                    continue;
+                }
+
                 var serializedFieldInterface = CreateWrapperClass(property);
-                logger.Debug($"generate nested class with interface {serializedFieldInterface.FullName}");
+                logger.Info($"generate nested class with interface {serializedFieldInterface.FullName}");
+                var serializedField = CreateSerializeReferenceField(property, serializedFieldInterface);
+                InjectGetter(property, serializedField);
+                InjectSetter(property, serializedField);
+                modified = true;
+            }
+            return modified;
+
+            void InjectGetter(PropertyDefinition property, FieldDefinition serializedField)
+            {
+                // --------add--------
+                // IL_0000: ldarg.0      // this
+                // IL_0001: ldfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::_Value
+                // IL_0006: dup
+                // IL_0007: brtrue.s     IL_0010
+                // IL_0009: pop
+                // --------add--------
+
+                // IL_000a: ldarg.0      // this
+                // IL_000b: ldfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::k__BackingField
+                // IL_0010: ret
+                if (property.GetMethod == null) return;
+                var instructions = property.GetMethod.Body.Instructions;
+                var ret = instructions.Last(i => i.OpCode == OpCodes.Ret);
+                instructions.Insert(0, Instruction.Create(OpCodes.Ldarg_0));
+                instructions.Insert(1, Instruction.Create(OpCodes.Ldfld, serializedField));
+                instructions.Insert(2, Instruction.Create(OpCodes.Dup));
+                instructions.Insert(3, Instruction.Create(OpCodes.Brtrue_S, ret));
+                instructions.Insert(4, Instruction.Create(OpCodes.Pop));
+            }
+
+            void InjectSetter(PropertyDefinition property, FieldDefinition serializedField)
+            {
+                //IL_0000: ldarg.0      // this
+                //IL_0001: ldarg.1      // 'value'
+                //IL_0002: stfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::'<Value>k__BackingField'
+                // before ret
+                // -------add-------
+                // IL_0008: ldarg.0      // this
+                // IL_0009: ldnull
+                // IL_000a: stfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::_Value
+                // -------add-------
+                //IL_0007: ret
+                if (property.SetMethod == null) return;
+                var instructions = property.SetMethod.Body.Instructions;
+                var retIndex = instructions.FindLastIndexOf(i => i.OpCode == OpCodes.Ret);
+                instructions.Insert(retIndex + 0, Instruction.Create(OpCodes.Ldarg_0));
+                instructions.Insert(retIndex + 1, Instruction.Create(OpCodes.Ldnull));
+                instructions.Insert(retIndex + 2, Instruction.Create(OpCodes.Stfld, serializedField));
+            }
+
+            FieldDefinition CreateSerializeReferenceField(PropertyDefinition property, TypeReference @interface)
+            {
                 //.field private class GenericSerializeReference.Tests.TestMonoBehavior/__generic_serialize_reference_GenericInterface__/IBase _GenericInterface
                 //  .custom instance void [UnityEngine.CoreModule]UnityEngine.SerializeReference::.ctor()
                 //    = (01 00 00 00 )
                 var serializedField = new FieldDefinition(
                     $"_{property.Name}"
                     , FieldAttributes.Private
-                    , serializedFieldInterface
+                    , @interface
                 );
                 var backingField = property.DeclaringType.Fields.First(field => field.Name == $"<{property.Name}>k__BackingField");
                 serializedField.CustomAttributes.Add(CreateCustomAttribute<SerializeReference>());
@@ -93,9 +151,8 @@ namespace GenericSerializeReference
                     serializedField.CustomAttributes.Add(customAttribute);
                 property.DeclaringType.Fields.Add(serializedField);
                 logger.Debug($"add field into {property.DeclaringType.FullName}");
-                modified = true;
+                return serializedField;
             }
-            return modified;
 
             CustomAttribute CreateCustomAttribute<T>(params Type[] constructorTypes) where T : Attribute
             {
@@ -127,34 +184,57 @@ namespace GenericSerializeReference
                 logger.Debug($"get derived {property.PropertyType.Module} {property.PropertyType} {property.PropertyType.Resolve()}");
                 var propertyTypeDefinition = property.PropertyType.Resolve();
                 var derivedTypes = typeTree.GetDirectDerived(propertyTypeDefinition);
-                logger.Debug($"create {string.Join(",", derivedTypes)}");
+                // TODO: should avoid recursive process with side effect?
+                //       return an enumerable of type reference with info to generate?
+                foreach (var derivedDef in derivedTypes) RecursiveProcess(derivedDef, property.PropertyType);
+                return baseInterface;
 
-                foreach (var derivedDef in derivedTypes)
+                void RecursiveProcess(TypeDefinition type, TypeReference baseType)
                 {
-                    var baseCtor = derivedDef.GetConstructors().FirstOrDefault(ctor => !ctor.HasParameters);
-                    if (baseCtor == null) continue;
+                    logger.Info($"create {type}({type.Module.Name}) : {baseType.ToReadableName()}");
+                    if (!type.IsPublicOrNestedPublic()) return;
+                    var baseCtor = type.GetConstructors().FirstOrDefault(ctor => !ctor.HasParameters);
+                    if (baseCtor == null) return;
 
-                    var derivedReference = module.ImportReference(derivedDef);
+                    var typeReference = module.ImportReference(type);
+                    IReadOnlyList<TypeReference> genericArguments = Array.Empty<TypeReference>();
                     try
                     {
-                        var genericArguments = derivedDef.ResolveGenericArguments(property.PropertyType);
-                        if (genericArguments.All(arg => !arg.IsGenericParameter))
-                        {
-                            var generated = GenerateDerivedClass(derivedReference, genericArguments);
-                            logger.Debug($"generate {generated.ToReadableName()} : {property.PropertyType.ToReadableName()}");
-                            generated.Interfaces.Add(new InterfaceImplementation(baseInterface));
-                            wrapper.NestedTypes.Add(generated);
-                        }
+                        genericArguments = type.ResolveGenericArguments(baseType);
                     }
                     catch (Exception ex)
                     {
-                        logger.Debug($"cannot generate {derivedReference.ToReadableName()} : {property.PropertyType.ToReadableName()}: {ex}");
+                        logger.Debug($"cannot resolve {typeReference.ToReadableName()} : {baseType.ToReadableName()}: {ex}");
+                        return;
                     }
+
+                    logger.Debug($"resolve generic arguments: {string.Join(",", genericArguments.Select(a => a.Name))}");
+                    if (genericArguments.All(arg => !arg.IsGenericParameter))
+                    {
+
+                        var className = typeReference.Name.Split('`')[0];
+                        if (wrapper.NestedTypes.Any(t => t.Name == className))
+                            className = typeReference.Resolve().NameWithOuterClasses();
+                        // TODO: should handle if the className is still the same with any of existing type.
+                        if (wrapper.NestedTypes.Any(t => t.Name == className))
+                            logger.Warning($"Overwrite type with same name {className}");
+                        var generated = GenerateDerivedClass(typeReference, genericArguments, className);
+                        logger.Debug($"generate {generated.ToReadableName()} : {baseType.ToReadableName()}");
+                        generated.Interfaces.Add(new InterfaceImplementation(baseInterface));
+                        wrapper.NestedTypes.Add(generated);
+                    }
+
+                    baseType = type.HasGenericParameters
+                        ? (TypeReference) type.MakeGenericInstanceType(genericArguments.ToArray())
+                        : type
+                    ;
+                    logger.Debug($"baseType = {baseType}");
+                    var derivedTypes = typeTree.GetDirectDerived(type);
+                    foreach (var derivedDef in derivedTypes) RecursiveProcess(derivedDef, baseType);
                 }
-                return baseInterface;
             }
 
-            TypeDefinition GenerateDerivedClass(TypeReference baseType, IReadOnlyList<TypeReference> genericArguments)
+            TypeDefinition GenerateDerivedClass(TypeReference baseType, IReadOnlyList<TypeReference> genericArguments, string className)
             {
                 // .class nested public auto ansi beforefieldinit
                 //   Object
@@ -174,10 +254,9 @@ namespace GenericSerializeReference
 
                 //   } // end of method Object::.ctor
                 // } // end of class Object
-                var className = baseType.Name.Split('`')[0];
                 var classAttributes = TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.BeforeFieldInit;
                 var type = new TypeDefinition("", className, classAttributes);
-                type.BaseType = baseType.MakeGenericInstanceType(genericArguments.ToArray());
+                type.BaseType = baseType.HasGenericParameters ? baseType.MakeGenericInstanceType(genericArguments.ToArray()) : baseType;
                 var ctor = baseType.Resolve().GetConstructors().First(c => !c.HasParameters);
                 var ctorCall = new MethodReference(ctor.Name, module.ImportReference(ctor.ReturnType))
                 {

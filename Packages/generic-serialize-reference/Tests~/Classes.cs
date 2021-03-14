@@ -69,7 +69,7 @@ namespace GenericSerializeReference.Tests
         }
 
         [Serializable]
-        public class NonGeneric : Object<float, int>, IInterface<int, int>
+        public class NonGeneric : Object<float, int>, IInterface<int, float>
         {
             public double ValueDouble;
         }

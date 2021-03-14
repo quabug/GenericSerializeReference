@@ -4,7 +4,6 @@ using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
-using Mono.Collections.Generic;
 
 namespace GenericSerializeReference
 {
@@ -13,6 +12,16 @@ namespace GenericSerializeReference
         public static IEnumerable<T> Yield<T>(this T value)
         {
             yield return value;
+        }
+
+        public static int FindLastIndexOf<T>(this IList<T> list, Predicate<T> predicate)
+        {
+            for (var i = list.Count - 1; i >= 0; i--)
+            {
+                if (predicate(list[i]))
+                    return i;
+            }
+            return -1;
         }
     }
 
@@ -109,6 +118,38 @@ namespace GenericSerializeReference
             ctor.Body.Instructions.Add(Instruction.Create(OpCodes.Call, baseCtor));
             ctor.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
             type.Methods.Add(ctor);
+        }
+
+        public static TypeReference CreateTypeReference(this TypeDefinition type, IReadOnlyList<TypeReference> genericArguments)
+        {
+            return type.HasGenericParameters
+                ? (TypeReference) type.MakeGenericInstanceType(genericArguments.ToArray())
+                : type
+            ;
+        }
+
+        public static bool IsPublicOrNestedPublic(this TypeDefinition type)
+        {
+            foreach (var t in type.GetSelfAndAllDeclaringTypes())
+            {
+                if ((t.IsNested && !t.IsNestedPublic) || (!t.IsNested && !t.IsPublic)) return false;
+            }
+            return true;
+        }
+
+        public static string NameWithOuterClasses(this TypeDefinition type)
+        {
+            return type.GetSelfAndAllDeclaringTypes().Aggregate("", (name, t) => $"{t.Name}.{name}");
+        }
+
+        public static IEnumerable<TypeDefinition> GetSelfAndAllDeclaringTypes(this TypeDefinition type)
+        {
+            yield return type;
+            while (type.DeclaringType != null)
+            {
+                yield return type.DeclaringType;
+                type = type.DeclaringType;
+            }
         }
     }
 }
