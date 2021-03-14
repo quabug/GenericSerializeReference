@@ -162,15 +162,16 @@ MonoBehaviour:
     id: 3
   _Double:
     id: 4
+  _IntObject:
+    id: 5
+  _IntIntObject:
+    id: 6
   references:
     version: 1
     00000000:
-      type: {class: TestMonoBehavior/<IntFloat>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
+      type: {class: TestMonoBehavior/<IntFloat>__generic_serialize_reference/TestMonoBehavior.Object., ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
       data:
-        ValueT: 0
-        ValueU: 0
-        SubValueT: 
-        SubValueU: []
+        V: 0
     00000001:
       type: {class: TestMonoBehavior/<FloatInt>__generic_serialize_reference/NonGeneric, ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
       data:
@@ -191,6 +192,17 @@ MonoBehaviour:
       type: {class: TestMonoBehavior/<Double>__generic_serialize_reference/DoubleObject, ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
       data:
         Value: 0
+    00000005:
+      type: {class: TestMonoBehavior/<IntObject>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
+      data:
+        Value: 0
+        SubValue: 
+    00000006:
+      type: {class: TestMonoBehavior/<IntIntObject>__generic_serialize_reference/PartialObject, ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
+      data:
+        ValueT: 0
+        ValueU: 0
+        ValueDouble: 0
 --- !u!4 &366887100
 Transform:
   m_ObjectHideFlags: 0
