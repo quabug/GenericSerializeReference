@@ -50,7 +50,7 @@ public class MyMonoBehavior : MonoBehaviour
     
     // 3. inject code into property's getter and setter
     //    make sure property get value from serialized field first
-    //    and set serialized field into null to avoid get from it next time.
+    //    and setter set serialized field into null to avoid get from it next time.
     [GenericSerializeReference]
     public IMyInterface<int> Value
     {
