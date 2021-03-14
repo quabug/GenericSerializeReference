@@ -85,7 +85,8 @@ namespace GenericSerializeReference
 
                 var serializedFieldInterface = CreateWrapperClass(property);
                 logger.Info($"generate nested class with interface {serializedFieldInterface.FullName}");
-                var serializedField = CreateSerializeReferenceField(property, serializedFieldInterface);
+                var fieldNamePrefix = (string)attribute.ConstructorArguments[0].Value;
+                var serializedField = CreateSerializeReferenceField(property, serializedFieldInterface, fieldNamePrefix);
                 InjectGetter(property, serializedField);
                 InjectSetter(property, serializedField);
                 modified = true;
@@ -135,13 +136,13 @@ namespace GenericSerializeReference
                 instructions.Insert(retIndex + 2, Instruction.Create(OpCodes.Stfld, serializedField));
             }
 
-            FieldDefinition CreateSerializeReferenceField(PropertyDefinition property, TypeReference @interface)
+            FieldDefinition CreateSerializeReferenceField(PropertyDefinition property, TypeReference @interface, string namePrefix)
             {
                 //.field private class GenericSerializeReference.Tests.TestMonoBehavior/__generic_serialize_reference_GenericInterface__/IBase _GenericInterface
                 //  .custom instance void [UnityEngine.CoreModule]UnityEngine.SerializeReference::.ctor()
                 //    = (01 00 00 00 )
                 var serializedField = new FieldDefinition(
-                    $"_{property.Name}"
+                    $"{namePrefix}{property.Name}"
                     , FieldAttributes.Private
                     , @interface
                 );

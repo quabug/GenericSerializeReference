@@ -153,19 +153,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a000e60ca5341d5a1f7805ac73274e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _IntFloat:
+  __IntFloat:
     id: 0
-  _FloatInt:
+  __FloatInt:
     id: 1
-  _IntInt:
+  __IntInt:
     id: 2
-  _Int:
+  __Int:
     id: 3
-  _Double:
+  __Double:
     id: 4
-  _IntObject:
+  __IntObject:
     id: 5
-  _IntIntObject:
+  __IntIntObject:
     id: 6
   references:
     version: 1
@@ -174,23 +174,22 @@ MonoBehaviour:
       data:
         V: 0
     00000001:
-      type: {class: TestMonoBehavior/<FloatInt>__generic_serialize_reference/NonGeneric, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
+      type: {class: TestMonoBehavior/<FloatInt>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
+      data:
+        ValueT: 0
+        ValueU: 0
+        SubValueT: []
+        SubValueU: 
+    00000002:
+      type: {class: TestMonoBehavior/<IntInt>__generic_serialize_reference/PartialObject, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
       data:
         ValueT: 0
         ValueU: 0
         ValueDouble: 0
-    00000002:
-      type: {class: TestMonoBehavior/<IntInt>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
-      data:
-        ValueT: 0
-        ValueU: 0
-        SubValueT: 
-        SubValueU: 
     00000003:
-      type: {class: TestMonoBehavior/<Int>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
+      type: {class: TestMonoBehavior/<Int>__generic_serialize_reference/Object, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
       data:
         Value: 0
-        SubValue: 
     00000004:
       type: {class: TestMonoBehavior/<Double>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
       data:
@@ -202,11 +201,12 @@ MonoBehaviour:
         Value: 0
         SubValue: 
     00000006:
-      type: {class: TestMonoBehavior/<IntIntObject>__generic_serialize_reference/PartialObject, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
+      type: {class: TestMonoBehavior/<IntIntObject>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
       data:
         ValueT: 0
         ValueU: 0
-        ValueDouble: 0
+        SubValueT: 
+        SubValueU: 
 --- !u!4 &366887100
 Transform:
   m_ObjectHideFlags: 0
@@ -233,9 +233,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 810f573826344204a49b76ad339a67e3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _Value:
+  __Value:
     id: 0
+  _serializedFoo:
+    id: 1
   references:
     version: 1
     00000000:
       type: {class: MyMonoBehavior/<Value>__generic_serialize_reference/MyIntObject, ns: , asm: GenericSerializeReference.Sample}
+    00000001:
+      type: {class: MyMonoBehavior/<Foo>__generic_serialize_reference/MyIntObject, ns: , asm: GenericSerializeReference.Sample}
