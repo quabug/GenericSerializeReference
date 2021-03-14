@@ -1,4 +1,4 @@
-Like [`SerializeReference`](https://docs.unity3d.com/ScriptReference/SerializeReference.html) but works on generic property.
+Similar like [`SerializeReference`](https://docs.unity3d.com/ScriptReference/SerializeReference.html) but works on generic property.
 
 ```c#
 public interface IMyInterface<T> {}
