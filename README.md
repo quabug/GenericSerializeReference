@@ -18,7 +18,7 @@ public class MyMonoBehavior : MonoBehaviour
 - Not support generic field.
 
 # Costs
-- Extra time to generate IL instructions while building assembly
+- Extra time to generate IL code while building assembly
 - Extra memory space to store a generated field for each property.
 
 # How it works
