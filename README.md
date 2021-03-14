@@ -1,3 +1,5 @@
+Like `SerializeReference` but works for generic type.
+
 ```c#
 public interface IMyInterface<T> {}
 public class MyIntObject : IMyInterface<int> {}
@@ -12,7 +14,8 @@ public class MyMonoBehavior : MonoBehaviour
 
 # Limitations
 - Only types from referenced assemblies could be show up in inspector.
-- Not support `struct` type
+- Not support `struct` type.
+- Not support generic field.
 
 # Costs
 - Extra time to generate IL instructions while building assembly
