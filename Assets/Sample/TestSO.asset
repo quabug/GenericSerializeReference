@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12c1653695b84d9489cbf7948c3d8d27, type: 3}
   m_Name: TestSO
   m_EditorClassIdentifier: 
-  _IntFloat:
+  __IntFloat:
     id: 0
   references:
     version: 1
