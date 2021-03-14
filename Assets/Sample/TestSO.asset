@@ -17,9 +17,7 @@ MonoBehaviour:
   references:
     version: 1
     00000000:
-      type: {class: TestSO/<IntFloat>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
+      type: {class: TestSO/<IntFloat>__generic_serialize_reference/MultipleGeneric.Object`2., ns: GenericSerializeReference.Sample, asm: GenericSerializeReference.Sample}
       data:
         ValueT: 0
         ValueU: 0
-        SubValueT: 
-        SubValueU: []

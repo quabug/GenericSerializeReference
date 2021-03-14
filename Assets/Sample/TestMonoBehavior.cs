@@ -1,10 +1,11 @@
 using System;
 using GenericSerializeReference;
 using UnityEngine;
+using UnityEngine.Scripting;
 
 [assembly: GenericSerializeReferenceLogger(LogLevel.Debug)]
 
-namespace GenericSerializeReference.Tests
+namespace GenericSerializeReference.Sample
 {
     public class TestMonoBehavior : MonoBehaviour
     {
@@ -43,6 +44,62 @@ namespace GenericSerializeReference.Tests
             Debug.Log($"set to {nameof(TestMonoBehavior)}.{nameof(Object)}");
             IntFloat = new Object { V = 5 };
             Debug.Log($"{IntFloat.GetType()}: \n {JsonUtility.ToJson(IntFloat)}");
+        }
+    }
+
+
+    public static class SingleGeneric
+    {
+        public interface IInterface<T> {}
+
+        [Serializable]
+        public class Object<T> : IInterface<T>
+        {
+            public T Value;
+        }
+
+        [Serializable]
+        public class SubObject<T> : Object<T>
+        {
+            public T[] SubValue;
+        }
+
+        [Serializable]
+        public class DoubleObject : IInterface<double>
+        {
+            public double Value;
+        }
+    }
+
+    public static class MultipleGeneric
+    {
+        [Preserve]
+        public interface IInterface<T, U> {}
+
+        [Serializable]
+        public class Object<T, U> : IInterface<T, U>
+        {
+            public T ValueT;
+            public U ValueU;
+        }
+
+        [Serializable]
+        public class SubObject<U, T> : Object<T, U>
+        {
+            public T[] SubValueT;
+            public U[] SubValueU;
+        }
+
+        [Serializable]
+        public class PartialObject<T> : Object<T, int>
+        {
+            public double ValueDouble;
+        }
+
+        [Serializable]
+        public class NonGeneric : Object<float, int>, IInterface<int, float>
+        {
+            public double ValueDouble;
         }
     }
 }
