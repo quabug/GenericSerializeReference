@@ -133,7 +133,6 @@ namespace GenericSerializeReference
                 {
                     var baseCtor = derivedDef.GetConstructors().FirstOrDefault(ctor => !ctor.HasParameters);
                     if (baseCtor == null) continue;
-                    var baseCtorRef = module.ImportReference(baseCtor);
 
                     var derivedReference = module.ImportReference(derivedDef);
                     try
@@ -142,7 +141,6 @@ namespace GenericSerializeReference
                         if (genericArguments.All(arg => !arg.IsGenericParameter))
                         {
                             var generated = GenerateDerivedClass(derivedReference, genericArguments);
-                            generated.AddEmptyCtor(baseCtorRef);
                             logger.Debug($"generate {generated.ToReadableName()} : {property.PropertyType.ToReadableName()}");
                             generated.Interfaces.Add(new InterfaceImplementation(baseInterface));
                             wrapper.NestedTypes.Add(generated);
@@ -180,6 +178,15 @@ namespace GenericSerializeReference
                 var classAttributes = TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.BeforeFieldInit;
                 var type = new TypeDefinition("", className, classAttributes);
                 type.BaseType = baseType.MakeGenericInstanceType(genericArguments.ToArray());
+                var ctor = baseType.Resolve().GetConstructors().First(c => !c.HasParameters);
+                var ctorCall = new MethodReference(ctor.Name, module.ImportReference(ctor.ReturnType))
+                {
+                    DeclaringType = type.BaseType,
+                    HasThis = ctor.HasThis,
+                    ExplicitThis = ctor.ExplicitThis,
+                    CallingConvention = ctor.CallingConvention,
+                };
+                type.AddEmptyCtor(ctorCall);
                 return type;
             }
         }
