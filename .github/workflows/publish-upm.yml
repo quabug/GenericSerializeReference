@@ -1,0 +1,17 @@
+name: Publish UPM Package
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  upm-release-essential:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: quabug/create-upm-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upm_package_path: Packages/generic-serialize-reference
