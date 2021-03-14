@@ -59,3 +59,7 @@ public class MyMonoBehavior : MonoBehaviour
     }
 }
 ```
+
+# License
+[MIT](https://github.com/quabug/GenericSerializeReference/blob/main/LICENSE)
+And drawer modified from [TextusGames](https://github.com/TextusGames)'s [UnitySerializedReferenceUI](https://github.com/TextusGames/UnitySerializedReferenceUI) with [MIT](https://github.com/TextusGames/UnitySerializedReferenceUI/blob/master/Assets/Textus/SerializeReferenceUI/LICENSE.txt) license
