@@ -13,7 +13,7 @@ public class MyMonoBehavior : MonoBehaviour
 ![image](https://user-images.githubusercontent.com/683655/111064372-b47b6280-84ee-11eb-90c2-22cfbdc65cc0.png)
 
 ## Requirement
-Unity3D 2020.2+ (not test the version below)
+Unity3D 2020.2+ (not guaranteed to work below 2020.2)
 
 ## Installation
 [OpenUPM](https://openupm.com/packages/com.quabug.generic-serialize-reference/): `openupm add com.quabug.generic-serialize-reference`
