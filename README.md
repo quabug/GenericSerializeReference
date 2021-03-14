@@ -3,6 +3,7 @@ Similar like [`SerializeReference`](https://docs.unity3d.com/ScriptReference/Ser
 ```c#
 public interface IMyInterface<T> {}
 public class MyIntObject : IMyInterface<int> {}
+public class MyGenericObject<T> : IMyInterface<T> {}
 
 public class MyMonoBehavior : MonoBehaviour
 {
@@ -10,7 +11,7 @@ public class MyMonoBehavior : MonoBehaviour
     public IMyInterface<int> Value { get; set; }
 }
 ```
-![image](https://user-images.githubusercontent.com/683655/111064372-b47b6280-84ee-11eb-90c2-22cfbdc65cc0.png)
+![image](https://user-images.githubusercontent.com/683655/111073521-0be2f800-851a-11eb-956e-a3044f141093.png)
 
 ## Requirement
 Unity3D 2020.2+ (not guaranteed to work below 2020.2)
