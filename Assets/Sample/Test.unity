@@ -169,9 +169,12 @@ MonoBehaviour:
   references:
     version: 1
     00000000:
-      type: {class: TestMonoBehavior/<IntFloat>__generic_serialize_reference/TestMonoBehavior.Object., ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
+      type: {class: TestMonoBehavior/<IntFloat>__generic_serialize_reference/SubObject, ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
       data:
-        V: 0
+        ValueT: 0
+        ValueU: 0
+        SubValueT: 
+        SubValueU: []
     00000001:
       type: {class: TestMonoBehavior/<FloatInt>__generic_serialize_reference/NonGeneric, ns: GenericSerializeReference.Tests, asm: GenericSerializeReference.Sample}
       data:

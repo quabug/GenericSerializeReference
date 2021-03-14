@@ -145,10 +145,11 @@ namespace GenericSerializeReference
                     , FieldAttributes.Private
                     , @interface
                 );
-                var backingField = property.DeclaringType.Fields.First(field => field.Name == $"<{property.Name}>k__BackingField");
                 serializedField.CustomAttributes.Add(CreateCustomAttribute<SerializeReference>());
-                foreach (var customAttribute in backingField.CustomAttributes)
-                    serializedField.CustomAttributes.Add(customAttribute);
+                serializedField.CustomAttributes.Add(CreateCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>());
+                // var backingField = property.DeclaringType.Fields.First(field => field.Name == $"<{property.Name}>k__BackingField");
+                // foreach (var customAttribute in backingField.CustomAttributes)
+                //     serializedField.CustomAttributes.Add(customAttribute);
                 property.DeclaringType.Fields.Add(serializedField);
                 logger.Debug($"add field into {property.DeclaringType.FullName}");
                 return serializedField;

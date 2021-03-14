@@ -1,13 +1,15 @@
 {
-    "name": "GenericSerializeReference",
-    "rootNamespace": "GenericSerializeReference",
-    "references": [],
+    "name": "Invisible",
+    "rootNamespace": "",
+    "references": [
+        "GUID:7db2c3edd9cbf4a0c84e314cca3ddf42"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": true,
+    "overrideReferences": false,
     "precompiledReferences": [],
-    "autoReferenced": false,
+    "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
     "noEngineReferences": false
