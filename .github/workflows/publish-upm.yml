@@ -15,3 +15,4 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upm_package_path: Packages/generic-serialize-reference
+        upm_tag_prefix: v
