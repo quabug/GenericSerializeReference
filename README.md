@@ -35,7 +35,7 @@ public class MyMonoBehavior : MonoBehaviour
     // public IMyInterface<int> Value { get; set; }
 
     // 1. gather derived types of property (`IMyInterface<>`)
-    //    then generate a concrete version of those types and make them all implement `IBase` interface
+    //    then generate a non-generic version of those types and make them all implement `IBase` interface
     private static class <Value>__generic_serialize_reference
     {
         public interface IBase {}
