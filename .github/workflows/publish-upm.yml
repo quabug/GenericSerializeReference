@@ -3,7 +3,7 @@ name: Publish UPM Package
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   upm-release-essential:
