@@ -128,7 +128,7 @@ namespace GenericSerializeReference
         {
             // it must have a BaseType
             var assemblyName =  type.BaseType.Assembly.ToString().Split('(', ',')[0];
-            var entryName = type.BaseType + "  ( " + assemblyName + " )";
+            var entryName = type.BaseType.ToReadableName() + "  ( " + assemblyName + " )";
             genericMenuContext.AddItem(new GUIContent(entryName), false, AssignNewInstanceCommand, new GenericMenuParameterForAssignInstanceCommand(type, property));
         }
 
