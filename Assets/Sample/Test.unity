@@ -134,6 +134,7 @@ GameObject:
   - component: {fileID: 366887100}
   - component: {fileID: 366887099}
   - component: {fileID: 366887101}
+  - component: {fileID: 366887102}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -239,3 +240,21 @@ MonoBehaviour:
     version: 1
     00000000:
       type: {class: MyMonoBehavior/<Value>__generic_serialize_reference/MyIntObject, ns: , asm: GenericSerializeReference.Sample}
+--- !u!114 &366887102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 366887098}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66e141599402ff44f8de6aef9ccd07f2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  __Value:
+    id: 0
+  references:
+    version: 1
+    00000000:
+      type: {class: , ns: , asm: }
