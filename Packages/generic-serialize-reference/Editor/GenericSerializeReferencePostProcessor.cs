@@ -83,9 +83,14 @@ namespace GenericSerializeReference
                     continue;
                 }
 
-                var serializedFieldInterface = CreateWrapperClass(property);
+                var wrapper = CreateWrapper(property);
+                var serializedFieldInterface = CreateInterface(wrapper);
+
+                var mode = (GenericSerializeReferenceAttribute.Mode)attribute.ConstructorArguments[GenericSerializeReferenceAttribute.MODE_INDEX].Value;
+                if (mode == GenericSerializeReferenceAttribute.Mode.Game) CreateDerivedClasses(property, wrapper, serializedFieldInterface);
+
                 logger.Info($"generate nested class with interface {serializedFieldInterface.FullName}");
-                var fieldNamePrefix = (string)attribute.ConstructorArguments[0].Value;
+                var fieldNamePrefix = (string)attribute.ConstructorArguments[GenericSerializeReferenceAttribute.PREFIX_INDEX].Value;
                 var serializedField = CreateSerializeReferenceField(property, serializedFieldInterface, fieldNamePrefix);
                 InjectGetter(property, serializedField);
                 InjectSetter(property, serializedField);
@@ -161,7 +166,7 @@ namespace GenericSerializeReference
                 return new CustomAttribute(module.ImportReference(typeof(T).GetConstructor(constructorTypes)));
             }
 
-            TypeDefinition/*interface*/ CreateWrapperClass(PropertyDefinition property)
+            TypeDefinition CreateWrapper(PropertyDefinition property)
             {
                 // .class nested public abstract sealed auto ansi beforefieldinit
                 //   <$PropertyName>__generic_serialize_reference
@@ -174,7 +179,11 @@ namespace GenericSerializeReference
                 var wrapper = new TypeDefinition("", $"<{property.Name}>__generic_serialize_reference", typeAttributes);
                 wrapper.BaseType = property.Module.ImportReference(typeof(System.Object));
                 property.DeclaringType.NestedTypes.Add(wrapper);
+                return wrapper;
+            }
 
+            TypeDefinition CreateInterface(TypeDefinition wrapper)
+            {
                 // .class interface nested public abstract auto ansi
                 var interfaceAttributes = TypeAttributes.Class |
                                           TypeAttributes.Interface |
@@ -182,14 +191,17 @@ namespace GenericSerializeReference
                                           TypeAttributes.Abstract;
                 var baseInterface = new TypeDefinition("", "IBase", interfaceAttributes);
                 wrapper.NestedTypes.Add(baseInterface);
+                return baseInterface;
+            }
 
+            void CreateDerivedClasses(PropertyDefinition property, TypeDefinition wrapper, TypeDefinition baseInterface)
+            {
                 logger.Debug($"get derived {property.PropertyType.Module} {property.PropertyType} {property.PropertyType.Resolve()}");
                 var propertyTypeDefinition = property.PropertyType.Resolve();
                 var derivedTypes = typeTree.GetDirectDerived(propertyTypeDefinition);
                 // TODO: should avoid recursive process with side effect?
                 //       return an enumerable of type reference with info to generate?
                 foreach (var derivedDef in derivedTypes) RecursiveProcess(derivedDef, property.PropertyType);
-                return baseInterface;
 
                 void RecursiveProcess(TypeDefinition type, TypeReference baseType)
                 {
