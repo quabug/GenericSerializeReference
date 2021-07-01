@@ -83,15 +83,27 @@ namespace GenericSerializeReference
                     continue;
                 }
 
-                var wrapper = CreateWrapper(property);
-                var serializedFieldInterface = CreateInterface(wrapper);
-
                 var mode = (GenericSerializeReferenceAttribute.Mode)attribute.ConstructorArguments[GenericSerializeReferenceAttribute.MODE_INDEX].Value;
-                if (mode == GenericSerializeReferenceAttribute.Mode.Game) CreateDerivedClasses(property, wrapper, serializedFieldInterface);
+                var isInterfaceOnly = mode == GenericSerializeReferenceAttribute.Mode.InterfaceOnly;
+
+                TypeDefinition serializedFieldInterface;
+                if (isInterfaceOnly)
+                {
+                    serializedFieldInterface = CreateInterface(property.DeclaringType, $"<{property.Name}>__IBase");
+                }
+                else
+                {
+                    var wrapper = CreateWrapper(property);
+                    serializedFieldInterface = CreateInterface(wrapper);
+                    CreateDerivedClasses(property, wrapper, serializedFieldInterface);
+                }
 
                 logger.Info($"generate nested class with interface {serializedFieldInterface.FullName}");
                 var fieldNamePrefix = (string)attribute.ConstructorArguments[GenericSerializeReferenceAttribute.PREFIX_INDEX].Value;
-                var serializedField = CreateSerializeReferenceField(property, serializedFieldInterface, fieldNamePrefix);
+                var serializedField = CreateSerializeReferenceField(property, serializedFieldInterface, fieldNamePrefix, mode);
+                if (isInterfaceOnly)
+                {
+                }
                 InjectGetter(property, serializedField);
                 InjectSetter(property, serializedField);
                 modified = true;
@@ -141,7 +153,12 @@ namespace GenericSerializeReference
                 instructions.Insert(retIndex + 2, Instruction.Create(OpCodes.Stfld, serializedField));
             }
 
-            FieldDefinition CreateSerializeReferenceField(PropertyDefinition property, TypeReference @interface, string namePrefix)
+            FieldDefinition CreateSerializeReferenceField(
+                PropertyDefinition property
+                , TypeReference @interface
+                , string namePrefix
+                , GenericSerializeReferenceAttribute.Mode mode
+            )
             {
                 //.field private class GenericSerializeReference.Tests.TestMonoBehavior/__generic_serialize_reference_GenericInterface__/IBase _GenericInterface
                 //  .custom instance void [UnityEngine.CoreModule]UnityEngine.SerializeReference::.ctor()
@@ -151,11 +168,16 @@ namespace GenericSerializeReference
                     , FieldAttributes.Private
                     , @interface
                 );
+
                 serializedField.CustomAttributes.Add(CreateCustomAttribute<SerializeReference>());
-                serializedField.CustomAttributes.Add(CreateCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>());
-                // var backingField = property.DeclaringType.Fields.First(field => field.Name == $"<{property.Name}>k__BackingField");
-                // foreach (var customAttribute in backingField.CustomAttributes)
-                //     serializedField.CustomAttributes.Add(customAttribute);
+
+                var attribute = CreateCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>(
+                    typeof(GenericSerializeReferenceAttribute.Mode)
+                );
+                var modeTypeDef = module.ImportReference(typeof(GenericSerializeReferenceAttribute.Mode));
+                attribute.ConstructorArguments.Add(new CustomAttributeArgument(modeTypeDef, mode));
+                serializedField.CustomAttributes.Add(attribute);
+
                 property.DeclaringType.Fields.Add(serializedField);
                 logger.Debug($"add field into {property.DeclaringType.FullName}");
                 return serializedField;
@@ -182,14 +204,14 @@ namespace GenericSerializeReference
                 return wrapper;
             }
 
-            TypeDefinition CreateInterface(TypeDefinition wrapper)
+            TypeDefinition CreateInterface(TypeDefinition wrapper, string interfaceName = "IBase")
             {
                 // .class interface nested public abstract auto ansi
                 var interfaceAttributes = TypeAttributes.Class |
                                           TypeAttributes.Interface |
                                           TypeAttributes.NestedPublic |
                                           TypeAttributes.Abstract;
-                var baseInterface = new TypeDefinition("", "IBase", interfaceAttributes);
+                var baseInterface = new TypeDefinition("", interfaceName, interfaceAttributes);
                 wrapper.NestedTypes.Add(baseInterface);
                 return baseInterface;
             }

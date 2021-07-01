@@ -8,7 +8,6 @@ namespace GenericSerializeReference.Tests
     public class TestTypeTree : CecilTestBase
     {
         private TypeTree _tree;
-        private ModuleDefinition _module;
 
         interface IGeneric<T, U> {}
         class TInt<T> : IGeneric<T, int> {}
@@ -20,7 +19,6 @@ namespace GenericSerializeReference.Tests
 
         protected override void OnSetUp()
         {
-            _module = _assemblyDefinition.MainModule;
             _tree = new TypeTree(_module.GetTypes());
         }
 

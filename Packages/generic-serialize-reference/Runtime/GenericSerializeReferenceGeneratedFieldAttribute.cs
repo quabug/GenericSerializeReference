@@ -7,5 +7,9 @@ using UnityEngine;
 namespace GenericSerializeReference
 {
     [AttributeUsage(AttributeTargets.Field)]
-    internal class GenericSerializeReferenceGeneratedFieldAttribute : PropertyAttribute {}
+    internal class GenericSerializeReferenceGeneratedFieldAttribute : PropertyAttribute
+    {
+        public GenericSerializeReferenceAttribute.Mode Mode { get; }
+        public GenericSerializeReferenceGeneratedFieldAttribute(GenericSerializeReferenceAttribute.Mode mode) => Mode = mode;
+    }
 }

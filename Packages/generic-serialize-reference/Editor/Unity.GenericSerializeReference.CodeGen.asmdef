@@ -18,6 +18,12 @@
     ],
     "autoReferenced": false,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.quabug.generic-serialize-reference-library-codegen",
+            "expression": "0.1.0",
+            "define": "ENABLE_LIBRARY_CODEGEN"
+        }
+    ],
     "noEngineReferences": false
 }
