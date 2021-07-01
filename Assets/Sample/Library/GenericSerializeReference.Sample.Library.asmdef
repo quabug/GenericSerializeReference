@@ -12,12 +12,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        {
-            "name": "Select...",
-            "expression": "",
-            "define": ""
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }
