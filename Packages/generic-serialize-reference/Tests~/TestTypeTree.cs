@@ -123,7 +123,7 @@ namespace GenericSerializeReference.Tests
         void CheckDerived(Type @base, params Type[] types)
         {
             var derivedTypes = _tree
-                .GetAllDerived(_module.ImportReference(@base), publicOnly: false)
+                .GetOrCreateAllDerivedReference(_module.ImportReference(@base), publicOnly: false)
                 .Select(type => type.FullName)
                 .ToArray()
             ;
@@ -133,7 +133,7 @@ namespace GenericSerializeReference.Tests
         void CheckDerivedIgnoreGenericParameters(Type @base, params Type[] types)
         {
             var tokens = _tree
-                .GetAllDerived(_module.ImportReference(@base).Resolve())
+                .GetAllDerivedDefinition(_module.ImportReference(@base).Resolve())
                 .Select(type => type.MetadataToken)
                 .ToArray()
             ;

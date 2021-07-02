@@ -212,7 +212,7 @@ namespace GenericSerializeReference
             void CreateDerivedClasses(PropertyDefinition property, TypeDefinition wrapper, TypeDefinition baseInterface)
             {
                 logger.Debug($"get derived {property.PropertyType.Module} {property.PropertyType} {property.PropertyType.Resolve()}");
-                foreach (var derived in typeTree.GetAllDerived(property.PropertyType))
+                foreach (var derived in typeTree.GetOrCreateAllDerivedReference(property.PropertyType))
                 {
                     var genericArguments = derived.IsGenericInstance
                         ? ((GenericInstanceType) derived).GenericArguments

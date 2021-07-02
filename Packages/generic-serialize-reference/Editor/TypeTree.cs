@@ -114,12 +114,12 @@ namespace GenericSerializeReference
 
         /// <summary>
         /// Get all derived class type of <paramref name="baseType"/>.
-        /// Ignore generic type argument if <paramref name="baseType"/> is a generic class with certain type argument.
+        /// Ignore generic type argument if <paramref name="baseType"/> is a generic class with certain type of arguments.
         /// </summary>
         /// <param name="baseType"></param>
         /// <returns>Any type of classes derived from <paramref name="baseType"/> directly or indirectly.</returns>
         /// <exception cref="ArgumentException"></exception>
-        public IEnumerable<TypeDefinition> GetAllDerived(TypeDefinition baseType)
+        public IEnumerable<TypeDefinition> GetAllDerivedDefinition(TypeDefinition baseType)
         {
             _typeTreeNodeMap.TryGetValue(new TypeKey(baseType), out var node);
             if (node == null) throw new ArgumentException($"{baseType} is not part of this tree");
@@ -143,16 +143,23 @@ namespace GenericSerializeReference
         /// <param name="baseType"></param>
         /// <returns>Any type of classes derived from <paramref name="baseType"/> directly.</returns>
         /// <exception cref="ArgumentException"></exception>
-        public IEnumerable<TypeDefinition> GetDirectDerived(TypeDefinition baseType)
+        public IEnumerable<TypeDefinition> GetDirectDerivedDefinition(TypeDefinition baseType)
         {
             _typeTreeNodeMap.TryGetValue(new TypeKey(baseType), out var node);
             if (node == null) throw new ArgumentException($"{baseType} is not part of this tree");
             return node.Subs.Select(sub => sub.Type);
         }
 
-        public IEnumerable<TypeReference> GetAllDerived(TypeReference rootType, bool publicOnly = true)
+        /// <summary>
+        /// Get all derived class type of <paramref name="rootType"/>.
+        /// Will make new TypeReference if derived type is generic.
+        /// </summary>
+        /// <param name="rootType"></param>
+        /// <param name="publicOnly">including public only classes or also including private ones.</param>
+        /// <returns>Any type of classes derived from <paramref name="rootType"/> directly or indirectly.</returns>
+        public IEnumerable<TypeReference> GetOrCreateAllDerivedReference(TypeReference rootType, bool publicOnly = true)
         {
-            return GetDirectDerived(rootType.Resolve()).SelectMany(t => RecursiveProcess(t, rootType));
+            return GetDirectDerivedDefinition(rootType.Resolve()).SelectMany(t => RecursiveProcess(t, rootType));
 
             IEnumerable<TypeReference> RecursiveProcess(TypeDefinition type, TypeReference baseType)
             {
@@ -177,7 +184,7 @@ namespace GenericSerializeReference
                 ;
 
                 return baseType.Yield().Concat(
-                    GetDirectDerived(type).SelectMany(t => RecursiveProcess(t, baseType))
+                    GetDirectDerivedDefinition(type).SelectMany(t => RecursiveProcess(t, baseType))
                 );
             }
         }
