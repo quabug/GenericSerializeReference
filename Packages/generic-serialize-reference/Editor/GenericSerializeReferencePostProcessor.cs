@@ -83,6 +83,12 @@ namespace GenericSerializeReference
                     continue;
                 }
 
+                if (!property.PropertyType.IsGenericInstance)
+                {
+                    logger.Warning($"Cannot process on property {property} with non-generic type {property.PropertyType.Name}");
+                    continue;
+                }
+
                 var mode = (GenericSerializeReferenceAttribute.Mode)attribute.ConstructorArguments[GenericSerializeReferenceAttribute.MODE_INDEX].Value;
                 var isInterfaceOnly = mode == GenericSerializeReferenceAttribute.Mode.InterfaceOnly;
 
@@ -168,24 +174,11 @@ namespace GenericSerializeReference
                     , FieldAttributes.Private
                     , @interface
                 );
-
-                serializedField.CustomAttributes.Add(CreateCustomAttribute<SerializeReference>());
-
-                var attribute = CreateCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>(
-                    typeof(GenericSerializeReferenceAttribute.Mode)
-                );
-                var modeTypeDef = module.ImportReference(typeof(GenericSerializeReferenceAttribute.Mode));
-                attribute.ConstructorArguments.Add(new CustomAttributeArgument(modeTypeDef, mode));
-                serializedField.CustomAttributes.Add(attribute);
-
+                serializedField.AddCustomAttribute<SerializeReference>(module);
+                serializedField.AddCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>(module);
                 property.DeclaringType.Fields.Add(serializedField);
                 logger.Debug($"add field into {property.DeclaringType.FullName}");
                 return serializedField;
-            }
-
-            CustomAttribute CreateCustomAttribute<T>(params Type[] constructorTypes) where T : Attribute
-            {
-                return new CustomAttribute(module.ImportReference(typeof(T).GetConstructor(constructorTypes)));
             }
 
             TypeDefinition CreateWrapper(PropertyDefinition property)
@@ -219,90 +212,27 @@ namespace GenericSerializeReference
             void CreateDerivedClasses(PropertyDefinition property, TypeDefinition wrapper, TypeDefinition baseInterface)
             {
                 logger.Debug($"get derived {property.PropertyType.Module} {property.PropertyType} {property.PropertyType.Resolve()}");
-                var propertyTypeDefinition = property.PropertyType.Resolve();
-                var derivedTypes = typeTree.GetDirectDerived(propertyTypeDefinition);
-                // TODO: should avoid recursive process with side effect?
-                //       return an enumerable of type reference with info to generate?
-                foreach (var derivedDef in derivedTypes) RecursiveProcess(derivedDef, property.PropertyType);
-
-                void RecursiveProcess(TypeDefinition type, TypeReference baseType)
+                foreach (var derived in typeTree.GetAllDerived(property.PropertyType))
                 {
-                    logger.Info($"create {type}({type.Module.Name}) : {baseType.ToReadableName()}");
-                    if (!type.IsPublicOrNestedPublic()) return;
-                    var baseCtor = type.GetConstructors().FirstOrDefault(ctor => !ctor.HasParameters);
-                    if (baseCtor == null) return;
+                    var genericArguments = derived.IsGenericInstance
+                        ? ((GenericInstanceType) derived).GenericArguments
+                        : (IEnumerable<TypeReference>)Array.Empty<TypeReference>()
+                    ;
 
-                    var typeReference = module.ImportReference(type);
-                    IReadOnlyList<TypeReference> genericArguments = Array.Empty<TypeReference>();
-                    try
-                    {
-                        genericArguments = type.ResolveGenericArguments(baseType);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Debug($"cannot resolve {typeReference.ToReadableName()} : {baseType.ToReadableName()}: {ex}");
-                        return;
-                    }
-
-                    logger.Debug($"resolve generic arguments: {string.Join(",", genericArguments.Select(a => a.Name))}");
                     if (genericArguments.All(arg => !arg.IsGenericParameter))
                     {
-
-                        var className = typeReference.Name.Split('`')[0];
+                        var className = derived.Name.Split('`')[0];
                         if (wrapper.NestedTypes.Any(t => t.Name == className))
-                            className = typeReference.Resolve().NameWithOuterClasses();
+                            className = derived.Resolve().NameWithOuterClasses();
                         // TODO: should handle if the className is still the same with any of existing type.
                         if (wrapper.NestedTypes.Any(t => t.Name == className))
                             logger.Warning($"Overwrite type with same name {className}");
-                        var generated = GenerateDerivedClass(typeReference, genericArguments, className);
-                        logger.Debug($"generate {generated.ToReadableName()} : {baseType.ToReadableName()}");
+                        var generated = derived.GenerateDerivedClass(genericArguments, className);
+                        logger.Debug($"generate {generated.ToReadableName()}");
                         generated.Interfaces.Add(new InterfaceImplementation(baseInterface));
                         wrapper.NestedTypes.Add(generated);
                     }
-
-                    baseType = type.HasGenericParameters
-                        ? (TypeReference) type.MakeGenericInstanceType(genericArguments.ToArray())
-                        : type
-                    ;
-                    logger.Debug($"baseType = {baseType}");
-                    var derivedTypes = typeTree.GetDirectDerived(type);
-                    foreach (var derivedDef in derivedTypes) RecursiveProcess(derivedDef, baseType);
                 }
-            }
-
-            TypeDefinition GenerateDerivedClass(TypeReference baseType, IReadOnlyList<TypeReference> genericArguments, string className)
-            {
-                // .class nested public auto ansi beforefieldinit
-                //   Object
-                //     extends class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>
-                //     implements GenericSerializeReference.Tests.TestMonoBehavior/IBase
-                // {
-
-                //   .method public hidebysig specialname rtspecialname instance void
-                //     .ctor() cil managed
-                //   {
-                //     .maxstack 8
-
-                //     IL_0000: ldarg.0      // this
-                //     IL_0001: call         instance void class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>::.ctor()
-                //     IL_0006: nop
-                //     IL_0007: ret
-
-                //   } // end of method Object::.ctor
-                // } // end of class Object
-                var classAttributes = TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.BeforeFieldInit;
-                var type = new TypeDefinition("", className, classAttributes);
-                type.BaseType = baseType.HasGenericParameters ? baseType.MakeGenericInstanceType(genericArguments.ToArray()) : baseType;
-                var ctor = baseType.Resolve().GetConstructors().First(c => !c.HasParameters);
-                var ctorCall = new MethodReference(ctor.Name, module.ImportReference(ctor.ReturnType))
-                {
-                    DeclaringType = type.BaseType,
-                    HasThis = ctor.HasThis,
-                    ExplicitThis = ctor.ExplicitThis,
-                    CallingConvention = ctor.CallingConvention,
-                };
-                type.AddEmptyCtor(ctorCall);
-                return type;
             }
         }
 

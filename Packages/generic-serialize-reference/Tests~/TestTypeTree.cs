@@ -25,13 +25,19 @@ namespace GenericSerializeReference.Tests
         [Test]
         public void should_get_derived_from_generic_interface()
         {
-            CheckDerived(typeof(IGeneric<,>), typeof(TInt<>), typeof(IntU<>), typeof(IntInt), typeof(TFloat<>), typeof(AnotherTFloat<>), typeof(TIntSub));
+            CheckDerivedIgnoreGenericParameters(typeof(IGeneric<,>), typeof(TInt<>), typeof(IntU<>), typeof(IntInt), typeof(TFloat<>), typeof(AnotherTFloat<>), typeof(TIntSub));
         }
 
         [Test]
-        public void should_get_derived_from_generic_interface_without_type_constraint()
+        public void should_get_derived_from_generic_interface_by_ignoring_generic_parameters()
         {
-            CheckDerived(typeof(IGeneric<int,int>), typeof(TInt<int>), typeof(IntU<int>), typeof(IntInt), typeof(TFloat<int>), typeof(AnotherTFloat<int>), typeof(TIntSub));
+            CheckDerivedIgnoreGenericParameters(typeof(IGeneric<int,int>), typeof(TInt<int>), typeof(IntU<int>), typeof(IntInt), typeof(TFloat<int>), typeof(AnotherTFloat<int>), typeof(TIntSub));
+        }
+
+        [Test]
+        public void should_get_derived_from_concrete_generic_interface()
+        {
+            CheckDerived(typeof(IGeneric<int,int>), typeof(TInt<int>), typeof(IntU<int>), typeof(IntInt), typeof(TIntSub));
         }
 
         interface I {}
@@ -116,18 +122,22 @@ namespace GenericSerializeReference.Tests
 
         void CheckDerived(Type @base, params Type[] types)
         {
+            var derivedTypes = _tree
+                .GetAllDerived(_module.ImportReference(@base), publicOnly: false)
+                .Select(type => type.FullName)
+                .ToArray()
+            ;
+            Assert.That(derivedTypes, Is.EquivalentTo(types.Select(type => _module.ImportReference(type).FullName)));
+        }
+
+        void CheckDerivedIgnoreGenericParameters(Type @base, params Type[] types)
+        {
             var tokens = _tree
-                .GetAllDerived(_module.ToTypeDefinition(@base))
+                .GetAllDerived(_module.ImportReference(@base).Resolve())
                 .Select(type => type.MetadataToken)
                 .ToArray()
             ;
-            IsTokensContains(tokens, types);
-        }
-
-        void IsTokensContains(MetadataToken[] tokens, params Type[] types)
-        {
-            Assert.AreEqual(types.Length, tokens.Length);
-            foreach (var type in types) Assert.Contains(_module.ToTypeDefinition(type).MetadataToken, tokens);
+            Assert.That(tokens, Is.EquivalentTo(types.Select(type => _module.ImportReference(type).Resolve().MetadataToken)));
         }
     }
 }

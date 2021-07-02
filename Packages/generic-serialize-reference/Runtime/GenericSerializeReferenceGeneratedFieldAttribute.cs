@@ -3,13 +3,10 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 
 [assembly: InternalsVisibleTo("Unity."+nameof(GenericSerializeReference)+".CodeGen")]
+[assembly: InternalsVisibleTo("GenericSerializeReference.Library.Editor")]
 
 namespace GenericSerializeReference
 {
     [AttributeUsage(AttributeTargets.Field)]
-    internal class GenericSerializeReferenceGeneratedFieldAttribute : PropertyAttribute
-    {
-        public GenericSerializeReferenceAttribute.Mode Mode { get; }
-        public GenericSerializeReferenceGeneratedFieldAttribute(GenericSerializeReferenceAttribute.Mode mode) => Mode = mode;
-    }
+    internal class GenericSerializeReferenceGeneratedFieldAttribute : PropertyAttribute {}
 }

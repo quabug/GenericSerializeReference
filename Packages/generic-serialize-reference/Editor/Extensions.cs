@@ -36,12 +36,6 @@ namespace GenericSerializeReference
 
     internal static class CecilExtension
     {
-        public static TypeDefinition ToTypeDefinition<T>(this ModuleDefinition module) =>
-            module.ToTypeDefinition(typeof(T));
-
-        public static TypeDefinition ToTypeDefinition(this ModuleDefinition module, Type type) =>
-            module.ImportReference(type).Resolve();
-
         public static string ToReadableName(this TypeReference type)
         {
             if (!type.IsGenericInstance) return type.Name;
@@ -159,6 +153,52 @@ namespace GenericSerializeReference
                 yield return type.DeclaringType;
                 type = type.DeclaringType;
             }
+        }
+
+        public static CustomAttribute AddCustomAttribute<T>(
+            this ICustomAttributeProvider attributeProvider
+            , ModuleDefinition module
+            , params Type[] constructorTypes
+        ) where T : Attribute
+        {
+            var attribute = new CustomAttribute(module.ImportReference(typeof(T).GetConstructor(constructorTypes)));
+            attributeProvider.CustomAttributes.Add(attribute);
+            return attribute;
+        }
+
+        public static TypeDefinition GenerateDerivedClass(this TypeReference baseType, IEnumerable<TypeReference> genericArguments, string className)
+        {
+            // .class nested public auto ansi beforefieldinit
+            //   Object
+            //     extends class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>
+            //     implements GenericSerializeReference.Tests.TestMonoBehavior/IBase
+            // {
+
+            //   .method public hidebysig specialname rtspecialname instance void
+            //     .ctor() cil managed
+            //   {
+            //     .maxstack 8
+
+            //     IL_0000: ldarg.0      // this
+            //     IL_0001: call         instance void class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>::.ctor()
+            //     IL_0006: nop
+            //     IL_0007: ret
+
+            //   } // end of method Object::.ctor
+            // } // end of class Object
+            var classAttributes = TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.BeforeFieldInit;
+            var type = new TypeDefinition("", className, classAttributes);
+            type.BaseType = baseType.HasGenericParameters ? baseType.MakeGenericInstanceType(genericArguments.ToArray()) : baseType;
+            var ctor = baseType.Resolve().GetConstructors().First(c => !c.HasParameters);
+            var ctorCall = new MethodReference(ctor.Name, baseType.Module.ImportReference(ctor.ReturnType))
+            {
+                DeclaringType = type.BaseType,
+                HasThis = ctor.HasThis,
+                ExplicitThis = ctor.ExplicitThis,
+                CallingConvention = ctor.CallingConvention,
+            };
+            type.AddEmptyCtor(ctorCall);
+            return type;
         }
     }
 }
