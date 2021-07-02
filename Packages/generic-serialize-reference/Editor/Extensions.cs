@@ -200,5 +200,21 @@ namespace GenericSerializeReference
             type.AddEmptyCtor(ctorCall);
             return type;
         }
+
+        public static TypeDefinition CreateNestedStaticPrivateClass(this TypeDefinition type, string name)
+        {
+            // .class nested private abstract sealed auto ansi beforefieldinit
+            //   <$PropertyName>__generic_serialize_reference
+            //     extends [mscorlib]System.Object
+            var typeAttributes = TypeAttributes.Class |
+                                 TypeAttributes.Sealed |
+                                 TypeAttributes.Abstract |
+                                 TypeAttributes.NestedPrivate |
+                                 TypeAttributes.BeforeFieldInit;
+            var nestedType = new TypeDefinition("", name, typeAttributes);
+            nestedType.BaseType = type.Module.ImportReference(typeof(object));
+            type.NestedTypes.Add(nestedType);
+            return nestedType;
+        }
     }
 }

@@ -99,7 +99,8 @@ namespace GenericSerializeReference
                 }
                 else
                 {
-                    var wrapper = CreateWrapper(property);
+                    var wrapperName = $"<{property.Name}>__generic_serialize_reference";
+                    var wrapper = property.DeclaringType.CreateNestedStaticPrivateClass(wrapperName);
                     serializedFieldInterface = CreateInterface(wrapper);
                     CreateDerivedClasses(property, wrapper, serializedFieldInterface);
                 }
@@ -179,22 +180,6 @@ namespace GenericSerializeReference
                 property.DeclaringType.Fields.Add(serializedField);
                 logger.Debug($"add field into {property.DeclaringType.FullName}");
                 return serializedField;
-            }
-
-            TypeDefinition CreateWrapper(PropertyDefinition property)
-            {
-                // .class nested public abstract sealed auto ansi beforefieldinit
-                //   <$PropertyName>__generic_serialize_reference
-                //     extends [mscorlib]System.Object
-                var typeAttributes = TypeAttributes.Class |
-                                     TypeAttributes.Sealed |
-                                     TypeAttributes.Abstract |
-                                     TypeAttributes.NestedPrivate |
-                                     TypeAttributes.BeforeFieldInit;
-                var wrapper = new TypeDefinition("", $"<{property.Name}>__generic_serialize_reference", typeAttributes);
-                wrapper.BaseType = property.Module.ImportReference(typeof(System.Object));
-                property.DeclaringType.NestedTypes.Add(wrapper);
-                return wrapper;
             }
 
             TypeDefinition CreateInterface(TypeDefinition wrapper, string interfaceName = "IBase")
