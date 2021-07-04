@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace GenericSerializeReference.Library
 {
-    public class GenericSerializeReferenceLibraryPostProcessor : ILPostProcessor
+    public class AssemblyCSharpPostProcessor : ILPostProcessor
     {
         public override ILPostProcessor GetInstance()
         {
@@ -27,9 +27,9 @@ namespace GenericSerializeReference.Library
         public override ILPostProcessResult Process(ICompiledAssembly compiledAssembly)
         {
             var logger = new ILPostProcessorLogger(new List<DiagnosticMessage>());
-            var (assembly, referenceAssemblies) = GenericSerializeReferencePostProcessor.LoadAssemblyDefinition(
-                compiledAssembly, name => name.StartsWith("Library")
-            );
+            using var resolver = new PostProcessorAssemblyResolver(compiledAssembly.References);
+            using var assembly = compiledAssembly.LoadAssembly(resolver);
+            var referenceAssemblies = compiledAssembly.LoadLibraryAssemblies(resolver).ToArray();
 
             try
             {
@@ -55,48 +55,24 @@ namespace GenericSerializeReference.Library
             }
             finally
             {
-                assembly.Dispose();
                 foreach (var reference in referenceAssemblies) reference.Dispose();
-
-                // if (Directory.Exists(GenericSerializeReferencePostProcessor.TempDirectory))
-                    // Directory.Delete(GenericSerializeReferencePostProcessor.TempDirectory, true);
             }
-        }
-
-        private bool IsInterfaceOnlyAttribute(CustomAttribute attribute)
-        {
-            var mode = (GenericSerializeReferenceAttribute.Mode)
-                attribute.ConstructorArguments[GenericSerializeReferenceAttribute.MODE_INDEX].Value;
-            return mode == GenericSerializeReferenceAttribute.Mode.InterfaceOnly;
         }
 
         private bool Process(ModuleDefinition module, IReadOnlyList<TypeDefinition> types, ILPostProcessorLogger logger)
         {
             var modified = false;
-
             var typeTree = new TypeTree(types);
-            logger.Info($"tree: {typeTree}");
-
             foreach (var (type, property, attribute) in
                 from type in types
                 where type.IsClass && !type.IsAbstract
                 from property in type.Properties
                 where property.PropertyType.IsGenericInstance
-                from attribute in property.GetAttributesOf<GenericSerializeReferenceAttribute>()
-                where IsInterfaceOnlyAttribute(attribute)
+                from attribute in property.GetAttributesOf<GenericSerializeReferenceInAssemblyCSharpAttribute>()
                 select (type, property, attribute)
             )
             {
-                var fieldNamePrefix = (string)attribute.ConstructorArguments[GenericSerializeReferenceAttribute.PREFIX_INDEX].Value;
-                var fieldName = $"{fieldNamePrefix}{property.Name}";
-                var field = type.Fields.FirstOrDefault(field => field.Name == fieldName);
-                if (field == null)
-                {
-                    logger.Warning($"Cannot process on property {property} without corresponding field by name of {fieldName} ({string.Join(",", type.Fields.Select(f => f.FullName))})");
-                    continue;
-                }
-
-                var baseInterface = field.FieldType;
+                var baseInterface = module.ImportReference((TypeDefinition)attribute.ConstructorArguments[0].Value);
                 var baseGeneric = property.PropertyType;
 
                 var wrapper = new TypeDefinition(
@@ -106,19 +82,22 @@ namespace GenericSerializeReference.Library
                 );
                 module.Types.Add(wrapper);
 
-                logger.Warning($"create implementation: {baseInterface.FullName} {baseGeneric.FullName}");
-                CreateDerived(module, typeTree, wrapper, baseGeneric, baseInterface);
-
-                modified = true;
+                foreach (var derived in typeTree
+                    .GetOrCreateAllDerivedReference(baseGeneric)
+                    .Select(module.ImportReference))
+                {
+                    var generated = CreateDerived(module, wrapper, derived, baseInterface);
+                    if (generated != null)
+                    {
+                        wrapper.NestedTypes.Add(generated);
+                        modified = true;
+                    }
+                }
             }
             return modified;
-        }
 
-        void CreateDerived(ModuleDefinition module, TypeTree typeTree, TypeDefinition wrapper, TypeReference genericRoot, TypeReference baseInterface)
-        {
-            foreach (var d in typeTree.GetOrCreateAllDerivedReference(genericRoot))
+            TypeDefinition CreateDerived(ModuleDefinition module, TypeDefinition wrapper, TypeReference derived, TypeReference baseInterface)
             {
-                var derived = module.ImportReference(d);
                 var genericArguments = derived.IsGenericInstance
                     ? ((GenericInstanceType) derived).GenericArguments
                     : (IEnumerable<TypeReference>)Array.Empty<TypeReference>()
@@ -130,7 +109,7 @@ namespace GenericSerializeReference.Library
                         className = derived.Resolve().NameWithOuterClasses();
                     // TODO: should handle if the className is still the same with any of existing type.
                     if (wrapper.NestedTypes.Any(t => t.Name == className))
-                        Debug.LogWarning($"Overwrite type with same name {className}");
+                        logger.Warning($"Overwrite type with same name {className}");
                     var classAttributes = TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.BeforeFieldInit;
                     var generated = new TypeDefinition("", className, classAttributes);
                     generated.BaseType = derived.HasGenericParameters ? derived.MakeGenericInstanceType(genericArguments.ToArray()) : derived;
@@ -145,8 +124,9 @@ namespace GenericSerializeReference.Library
                     generated.AddEmptyCtor(ctorCall);
                     var interfaceImplementation = new InterfaceImplementation(baseInterface);
                     generated.Interfaces.Add(interfaceImplementation);
-                    wrapper.NestedTypes.Add(generated);
+                    return generated;
                 }
+                return null;
             }
         }
     }

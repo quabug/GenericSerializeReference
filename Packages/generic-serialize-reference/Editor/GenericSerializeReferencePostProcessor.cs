@@ -29,12 +29,14 @@ namespace GenericSerializeReference
         public override ILPostProcessResult Process(ICompiledAssembly compiledAssembly)
         {
             var logger = new ILPostProcessorLogger(new List<DiagnosticMessage>());
-            var (assembly, referenceAssemblies) = LoadAssemblyDefinition(compiledAssembly, name => name.StartsWith("Library"));
-            var loggerAttributes = assembly.GetAttributesOf<GenericSerializeReferenceLoggerAttribute>();
-            if (loggerAttributes.Any()) logger.LogLevel = (LogLevel)loggerAttributes.First().ConstructorArguments[0].Value;
-            logger.Info($"process GenericSerializeReference on {assembly.Name.Name}({string.Join(",", referenceAssemblies.Select(r => r.Name.Name))})");
+            using var resolver = new PostProcessorAssemblyResolver(compiledAssembly.References);
+            using var assembly = compiledAssembly.LoadAssembly(resolver);
+            var referenceAssemblies = compiledAssembly.LoadLibraryAssemblies(resolver).ToArray();
             try
             {
+                var loggerAttributes = assembly.GetAttributesOf<GenericSerializeReferenceLoggerAttribute>();
+                if (loggerAttributes.Any()) logger.LogLevel = (LogLevel)loggerAttributes.First().ConstructorArguments[0].Value;
+                logger.Info($"process GenericSerializeReference on {assembly.Name.Name}({string.Join(",", referenceAssemblies.Select(r => r.Name.Name))})");
                 var allTypes = referenceAssemblies.Append(assembly)
                     .Where(asm => !asm.Name.Name.StartsWith("Unity.")
                                   && !asm.Name.Name.StartsWith("UnityEditor.")
@@ -61,7 +63,6 @@ namespace GenericSerializeReference
             }
             finally
             {
-                assembly.Dispose();
                 foreach (var reference in referenceAssemblies) reference.Dispose();
             }
         }
@@ -90,98 +91,17 @@ namespace GenericSerializeReference
                     continue;
                 }
 
-                var mode = (GenericSerializeReferenceAttribute.Mode)attribute.ConstructorArguments[GenericSerializeReferenceAttribute.MODE_INDEX].Value;
-                var isInterfaceOnly = mode == GenericSerializeReferenceAttribute.Mode.InterfaceOnly;
-
-                TypeDefinition serializedFieldInterface;
-                if (isInterfaceOnly)
-                {
-                    serializedFieldInterface = CreateInterface(property.DeclaringType, $"<{property.Name}>__IBase");
-                }
-                else
-                {
-                    var wrapperName = $"<{property.Name}>__generic_serialize_reference";
-                    var wrapper = property.DeclaringType.CreateNestedStaticPrivateClass(wrapperName);
-                    serializedFieldInterface = CreateInterface(wrapper);
-                    CreateDerivedClasses(property, wrapper, serializedFieldInterface);
-                }
+                var wrapperName = $"<{property.Name}>__generic_serialize_reference";
+                var wrapper = property.DeclaringType.CreateNestedStaticPrivateClass(wrapperName);
+                var serializedFieldInterface = CreateInterface(wrapper);
+                CreateDerivedClasses(property, wrapper, serializedFieldInterface);
 
                 logger.Info($"generate nested class with interface {serializedFieldInterface.FullName}");
-                var fieldNamePrefix = (string)attribute.ConstructorArguments[GenericSerializeReferenceAttribute.PREFIX_INDEX].Value;
-                var serializedField = CreateSerializeReferenceField(property, serializedFieldInterface, fieldNamePrefix, mode);
-                if (isInterfaceOnly)
-                {
-                }
-                InjectGetter(property, serializedField);
-                InjectSetter(property, serializedField);
+                var fieldNamePrefix = (string)attribute.ConstructorArguments[0].Value;
+                GenerateField(module, property, serializedFieldInterface, fieldNamePrefix);
                 modified = true;
             }
             return modified;
-
-            void InjectGetter(PropertyDefinition property, FieldDefinition serializedField)
-            {
-                // --------add--------
-                // IL_0000: ldarg.0      // this
-                // IL_0001: ldfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::_Value
-                // IL_0006: dup
-                // IL_0007: brtrue.s     IL_0010
-                // IL_0009: pop
-                // --------add--------
-
-                // IL_000a: ldarg.0      // this
-                // IL_000b: ldfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::k__BackingField
-                // IL_0010: ret
-                if (property.GetMethod == null) return;
-                var instructions = property.GetMethod.Body.Instructions;
-                var ret = instructions.Last(i => i.OpCode == OpCodes.Ret);
-                instructions.Insert(0, Instruction.Create(OpCodes.Ldarg_0));
-                instructions.Insert(1, Instruction.Create(OpCodes.Ldfld, serializedField));
-                instructions.Insert(2, Instruction.Create(OpCodes.Dup));
-                instructions.Insert(3, Instruction.Create(OpCodes.Brtrue_S, ret));
-                instructions.Insert(4, Instruction.Create(OpCodes.Pop));
-            }
-
-            void InjectSetter(PropertyDefinition property, FieldDefinition serializedField)
-            {
-                //IL_0000: ldarg.0      // this
-                //IL_0001: ldarg.1      // 'value'
-                //IL_0002: stfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::'<Value>k__BackingField'
-                // before ret
-                // -------add-------
-                // IL_0008: ldarg.0      // this
-                // IL_0009: ldnull
-                // IL_000a: stfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::_Value
-                // -------add-------
-                //IL_0007: ret
-                if (property.SetMethod == null) return;
-                var instructions = property.SetMethod.Body.Instructions;
-                var retIndex = instructions.FindLastIndexOf(i => i.OpCode == OpCodes.Ret);
-                instructions.Insert(retIndex + 0, Instruction.Create(OpCodes.Ldarg_0));
-                instructions.Insert(retIndex + 1, Instruction.Create(OpCodes.Ldnull));
-                instructions.Insert(retIndex + 2, Instruction.Create(OpCodes.Stfld, serializedField));
-            }
-
-            FieldDefinition CreateSerializeReferenceField(
-                PropertyDefinition property
-                , TypeReference @interface
-                , string namePrefix
-                , GenericSerializeReferenceAttribute.Mode mode
-            )
-            {
-                //.field private class GenericSerializeReference.Tests.TestMonoBehavior/__generic_serialize_reference_GenericInterface__/IBase _GenericInterface
-                //  .custom instance void [UnityEngine.CoreModule]UnityEngine.SerializeReference::.ctor()
-                //    = (01 00 00 00 )
-                var serializedField = new FieldDefinition(
-                    $"{namePrefix}{property.Name}"
-                    , FieldAttributes.Private
-                    , @interface
-                );
-                serializedField.AddCustomAttribute<SerializeReference>(module);
-                serializedField.AddCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>(module);
-                property.DeclaringType.Fields.Add(serializedField);
-                logger.Debug($"add field into {property.DeclaringType.FullName}");
-                return serializedField;
-            }
 
             TypeDefinition CreateInterface(TypeDefinition wrapper, string interfaceName = "IBase")
             {
@@ -222,23 +142,79 @@ namespace GenericSerializeReference
             }
         }
 
-        internal static (AssemblyDefinition compiled, AssemblyDefinition[] references)
-            LoadAssemblyDefinition(ICompiledAssembly compiledAssembly, Func<string, bool> referencePredicate)
+        internal static void GenerateField(
+            ModuleDefinition module,
+            PropertyDefinition property,
+            TypeDefinition fieldType,
+            string fieldNamePrefix)
         {
-            var resolver = new PostProcessorAssemblyResolver(compiledAssembly.References);
-            var symbolStream = new MemoryStream(compiledAssembly.InMemoryAssembly.PdbData.ToArray());
-            var readerParameters = new ReaderParameters
-            {
-                SymbolStream = symbolStream,
-                SymbolReaderProvider = new PortablePdbReaderProvider(),
-                AssemblyResolver = resolver,
-                ReflectionImporterProvider = new PostProcessorReflectionImporterProvider(),
-                ReadingMode = ReadingMode.Immediate,
-            };
-            var peStream = new MemoryStream(compiledAssembly.InMemoryAssembly.PeData.ToArray());
-            var assembly = AssemblyDefinition.ReadAssembly(peStream, readerParameters);
-            var referenceAssemblies = compiledAssembly.References.Where(referencePredicate).Select(resolver.Resolve).ToArray();
-            return (assembly, referenceAssemblies);
+            var serializedField = CreateSerializeReferenceField(module, property, fieldType, fieldNamePrefix);
+            InjectGetter(property, serializedField);
+            InjectSetter(property, serializedField);
         }
+
+        internal static FieldDefinition CreateSerializeReferenceField(
+            ModuleDefinition module,
+            PropertyDefinition property,
+            TypeReference @interface,
+            string namePrefix)
+        {
+            //.field private class GenericSerializeReference.Tests.TestMonoBehavior/__generic_serialize_reference_GenericInterface__/IBase _GenericInterface
+            //  .custom instance void [UnityEngine.CoreModule]UnityEngine.SerializeReference::.ctor()
+            //    = (01 00 00 00 )
+            var serializedField = new FieldDefinition(
+                $"{namePrefix}{property.Name}"
+                , FieldAttributes.Private
+                , @interface
+            );
+            serializedField.AddCustomAttribute<SerializeReference>(module);
+            serializedField.AddCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>(module);
+            property.DeclaringType.Fields.Add(serializedField);
+            return serializedField;
+        }
+
+        internal static void InjectGetter(PropertyDefinition property, FieldDefinition serializedField)
+        {
+            // --------add--------
+            // IL_0000: ldarg.0      // this
+            // IL_0001: ldfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::_Value
+            // IL_0006: dup
+            // IL_0007: brtrue.s     IL_0010
+            // IL_0009: pop
+            // --------add--------
+
+            // IL_000a: ldarg.0      // this
+            // IL_000b: ldfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::k__BackingField
+            // IL_0010: ret
+            if (property.GetMethod == null) return;
+            var instructions = property.GetMethod.Body.Instructions;
+            var ret = instructions.Last(i => i.OpCode == OpCodes.Ret);
+            instructions.Insert(0, Instruction.Create(OpCodes.Ldarg_0));
+            instructions.Insert(1, Instruction.Create(OpCodes.Ldfld, serializedField));
+            instructions.Insert(2, Instruction.Create(OpCodes.Dup));
+            instructions.Insert(3, Instruction.Create(OpCodes.Brtrue_S, ret));
+            instructions.Insert(4, Instruction.Create(OpCodes.Pop));
+        }
+
+        internal static void InjectSetter(PropertyDefinition property, FieldDefinition serializedField)
+        {
+            //IL_0000: ldarg.0      // this
+            //IL_0001: ldarg.1      // 'value'
+            //IL_0002: stfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::'<Value>k__BackingField'
+            // before ret
+            // -------add-------
+            // IL_0008: ldarg.0      // this
+            // IL_0009: ldnull
+            // IL_000a: stfld        class GenericSerializeReference.Tests.SingleGeneric/IInterface`1<int32> GenericSerializeReference.Tests.A::_Value
+            // -------add-------
+            //IL_0007: ret
+            if (property.SetMethod == null) return;
+            var instructions = property.SetMethod.Body.Instructions;
+            var retIndex = instructions.FindLastIndexOf(i => i.OpCode == OpCodes.Ret);
+            instructions.Insert(retIndex + 0, Instruction.Create(OpCodes.Ldarg_0));
+            instructions.Insert(retIndex + 1, Instruction.Create(OpCodes.Ldnull));
+            instructions.Insert(retIndex + 2, Instruction.Create(OpCodes.Stfld, serializedField));
+        }
+
     }
 }
