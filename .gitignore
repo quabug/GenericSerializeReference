@@ -68,3 +68,5 @@ Assets/Plugins/Animancer/Examples.meta
 # OS
 .DS_Store
 .vsconfig
+Packages/generic-serialize-reference/Test
+Packages/generic-serialize-reference/Test.meta

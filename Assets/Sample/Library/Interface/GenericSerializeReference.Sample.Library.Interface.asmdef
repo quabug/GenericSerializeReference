@@ -1,14 +1,11 @@
 {
-    "name": "GenericSerializeReference.Sample",
+    "name": "GenericSerializeReference.Sample.Library.Interface",
     "rootNamespace": "",
-    "references": [
-        "GUID:e68bcd447d2cc4be2b6d31311e6ca7e9",
-        "GUID:36fd0010d4685b4408721d3172136183"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": true,
+    "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],

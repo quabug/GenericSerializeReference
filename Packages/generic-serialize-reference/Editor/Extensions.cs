@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using Unity.CompilationPipeline.Common.Diagnostics;
+using Unity.CompilationPipeline.Common.ILPostProcessing;
 
 namespace GenericSerializeReference
 {
@@ -34,14 +38,39 @@ namespace GenericSerializeReference
         }
     }
 
+    internal static class PostProcessorExtension
+    {
+        public static AssemblyDefinition LoadAssembly(this ICompiledAssembly compiledAssembly, IAssemblyResolver resolver)
+        {
+            var symbolStream = new MemoryStream(compiledAssembly.InMemoryAssembly.PdbData.ToArray());
+            var readerParameters = new ReaderParameters
+            {
+                SymbolStream = symbolStream,
+                SymbolReaderProvider = new PortablePdbReaderProvider(),
+                AssemblyResolver = resolver,
+                ReflectionImporterProvider = new PostProcessorReflectionImporterProvider(),
+                ReadingMode = ReadingMode.Immediate,
+            };
+            var peStream = new MemoryStream(compiledAssembly.InMemoryAssembly.PeData.ToArray());
+            return AssemblyDefinition.ReadAssembly(peStream, readerParameters);
+        }
+
+        public static IEnumerable<AssemblyDefinition> LoadLibraryAssemblies(this ICompiledAssembly compiledAssembly, PostProcessorAssemblyResolver resolver)
+        {
+            return compiledAssembly.References.Where(name => name.StartsWith("Library")).Select(resolver.Resolve);
+        }
+
+        public static ILPostProcessorLogger CreateLogger(this AssemblyDefinition assembly)
+        {
+            var logger = new ILPostProcessorLogger(new List<DiagnosticMessage>());
+            var loggerAttributes = assembly.GetAttributesOf<GenericSerializeReferenceLoggerAttribute>();
+            if (loggerAttributes.Any()) logger.LogLevel = (LogLevel)loggerAttributes.First().ConstructorArguments[0].Value;
+            return logger;
+        }
+    }
+
     internal static class CecilExtension
     {
-        public static TypeDefinition ToTypeDefinition<T>(this ModuleDefinition module) =>
-            module.ToTypeDefinition(typeof(T));
-
-        public static TypeDefinition ToTypeDefinition(this ModuleDefinition module, Type type) =>
-            module.ImportReference(type).Resolve();
-
         public static string ToReadableName(this TypeReference type)
         {
             if (!type.IsGenericInstance) return type.Name;
@@ -159,6 +188,78 @@ namespace GenericSerializeReference
                 yield return type.DeclaringType;
                 type = type.DeclaringType;
             }
+        }
+
+        public static CustomAttribute AddCustomAttribute<T>(
+            this ICustomAttributeProvider attributeProvider
+            , ModuleDefinition module
+            , params Type[] constructorTypes
+        ) where T : Attribute
+        {
+            var attribute = new CustomAttribute(module.ImportReference(typeof(T).GetConstructor(constructorTypes)));
+            attributeProvider.CustomAttributes.Add(attribute);
+            return attribute;
+        }
+
+        public static TypeDefinition GenerateDerivedClass(this TypeReference baseType, IEnumerable<TypeReference> genericArguments, string className, ModuleDefinition module = null)
+        {
+            // .class nested public auto ansi beforefieldinit
+            //   Object
+            //     extends class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>
+            //     implements GenericSerializeReference.Tests.TestMonoBehavior/IBase
+            // {
+
+            //   .method public hidebysig specialname rtspecialname instance void
+            //     .ctor() cil managed
+            //   {
+            //     .maxstack 8
+
+            //     IL_0000: ldarg.0      // this
+            //     IL_0001: call         instance void class [GenericSerializeReference.Tests]GenericSerializeReference.Tests.MultipleGeneric/Object`2<int32, float32>::.ctor()
+            //     IL_0006: nop
+            //     IL_0007: ret
+
+            //   } // end of method Object::.ctor
+            // } // end of class Object
+            module ??= baseType.Module;
+            var classAttributes = TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.BeforeFieldInit;
+            var type = new TypeDefinition("", className, classAttributes);
+            type.BaseType = baseType.HasGenericParameters ? baseType.MakeGenericInstanceType(genericArguments.ToArray()) : baseType;
+            var ctor = module.ImportReference(baseType.Resolve().GetConstructors().First(c => !c.HasParameters)).Resolve();
+            var ctorCall = new MethodReference(ctor.Name, module.ImportReference(ctor.ReturnType))
+            {
+                DeclaringType = type.BaseType,
+                HasThis = ctor.HasThis,
+                ExplicitThis = ctor.ExplicitThis,
+                CallingConvention = ctor.CallingConvention,
+            };
+            type.AddEmptyCtor(ctorCall);
+            return type;
+        }
+
+        public static TypeDefinition CreateNestedStaticPrivateClass(this TypeDefinition type, string name)
+        {
+            // .class nested private abstract sealed auto ansi beforefieldinit
+            //   <$PropertyName>__generic_serialize_reference
+            //     extends [mscorlib]System.Object
+            var typeAttributes = TypeAttributes.Class |
+                                 TypeAttributes.Sealed |
+                                 TypeAttributes.Abstract |
+                                 TypeAttributes.NestedPrivate |
+                                 TypeAttributes.BeforeFieldInit;
+            var nestedType = new TypeDefinition("", name, typeAttributes);
+            nestedType.BaseType = type.Module.ImportReference(typeof(object));
+            type.NestedTypes.Add(nestedType);
+            return nestedType;
+        }
+
+        public static IEnumerable<CustomAttribute> GetAttributesOf<T>([NotNull] this ICustomAttributeProvider provider) where T : Attribute
+        {
+            return provider.HasCustomAttributes ?
+                provider.CustomAttributes.Where(IsAttributeOf) :
+                Enumerable.Empty<CustomAttribute>();
+
+            static bool IsAttributeOf(CustomAttribute attribute) => attribute.AttributeType.FullName == typeof(T).FullName;
         }
     }
 }
