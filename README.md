@@ -20,7 +20,6 @@ Unity3D 2020.2+ (not guaranteed to work below 2020.2)
 [OpenUPM](https://openupm.com/packages/com.quabug.generic-serialize-reference/): `openupm add com.quabug.generic-serialize-reference`
 
 ## Limitations
-- Only types from referenced assemblies could be show up in inspector. (usually this is not a big deal when writing game code, but become a major drawback when writing a library)
 - Not support `struct` type.
 - Not support generic field.
 - Not support variance.
@@ -30,26 +29,21 @@ Unity3D 2020.2+ (not guaranteed to work below 2020.2)
 - Extra memory space to store a generated field for each property.
 
 ## How it works
+
+### AssemblyCSharp Mode
 ```c#
+// Generate derived types into AssemblyCSharp.dll
 public class MyMonoBehavior : MonoBehaviour
 {
-    // [GenericSerializeReference]
+    // [GenericSerializeReference(mode: GenerateMode.AssemblyCSharp)]
     // public IMyInterface<int> Value { get; set; }
 
-    // 1. gather derived types of property (`IMyInterface<>`)
-    //    then generate a non-generic version of those types and make them all implement `IBase` interface
-    private static class <Value>__generic_serialize_reference
-    {
-        public interface IBase {}
-        public class MyIntObject : global::MyIntObject, IBase {}
-    }
-
-    // 2. create a field named _Value with `IBase` type
+    // 1. create a field named _Value with `IBase` type
     //    which should be able to serialized by `SerializeReference` attribute
     [SerializeReference, GenericSerializeReferenceGeneratedField]
-    private <Value>__generic_serialize_reference.IBase _Value;
+    private GenericSerializeReference.IBase _Value;
     
-    // 3. inject code into property's getter and setter
+    // 2. inject code into property's getter and setter
     //    make sure property get value from serialized field first
     //    and setter set serialized field into null to avoid get from it next time.
     [GenericSerializeReference]
@@ -65,6 +59,58 @@ public class MyMonoBehavior : MonoBehaviour
             _Value = null;
         }
     }
+}
+
+// AssemblyCSharp.dll
+// 3. gather derived types of property (`IMyInterface<int>`)
+//    then generate a non-generic version of those types and make them all implement `IBase` interface
+namespace <GenericSerializeReference>
+{
+    static class IMyInterface`1<System_Int32>
+    {
+        class MyIntObject : global::MyIntObject, GenericSerializeReference.IBase {}
+    }
+}
+```
+
+### Embed Mode
+```c#
+// Embed into current class
+public class MyMonoBehavior : MonoBehaviour
+{
+    // [GenericSerializeReference(mode: GenerateMode.Embed)]
+    // public IMyInterface<int> Value { get; set; }
+
+    // 1. create a field named _Value with `IBase` type
+    //    which should be able to serialized by `SerializeReference` attribute
+    [SerializeReference, GenericSerializeReferenceGeneratedField]
+    private <Value>__generic_serialize_reference.IBase _Value;
+    
+    // 2. inject code into property's getter and setter
+    //    make sure property get value from serialized field first
+    //    and setter set serialized field into null to avoid get from it next time.
+    [GenericSerializeReference]
+    public IMyInterface<int> Value
+    {
+        get
+        {
+            return (IMyInterface<int>) _Value ?? <Value>k__backingField;
+        }
+        set
+        {
+            <Value>k__backingField = value;
+            _Value = null;
+        }
+    }
+    
+    // 3. gather derived types of property (`IMyInterface<int>`)
+    //    then generate a non-generic version of those types and make them all implement `IBase` interface
+    private static class <Value>__generic_serialize_reference
+    {
+        public interface IBase {}
+        public class MyIntObject : global::MyIntObject, IBase {}
+    }
+
 }
 ```
 
