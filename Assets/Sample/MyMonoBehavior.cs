@@ -1,3 +1,4 @@
+using System;
 using GenericSerializeReference;
 using UnityEngine;
 
@@ -13,4 +14,9 @@ public class MyMonoBehavior : MonoBehaviour
     // [GenericSerializeReference("_serialized")]
     // public IMyInterface<int> Foo { get; set; }
     // private int __Foo;
+
+    private void Awake()
+    {
+        Debug.Log($"{name}.{nameof(Value)} is {Value.GetType()}");
+    }
 }
