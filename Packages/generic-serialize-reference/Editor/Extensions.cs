@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -166,7 +167,7 @@ namespace GenericSerializeReference
             return attribute;
         }
 
-        public static TypeDefinition GenerateDerivedClass(this TypeReference baseType, IEnumerable<TypeReference> genericArguments, string className)
+        public static TypeDefinition GenerateDerivedClass(this TypeReference baseType, IEnumerable<TypeReference> genericArguments, string className, ModuleDefinition module = null)
         {
             // .class nested public auto ansi beforefieldinit
             //   Object
@@ -186,11 +187,12 @@ namespace GenericSerializeReference
 
             //   } // end of method Object::.ctor
             // } // end of class Object
+            module ??= baseType.Module;
             var classAttributes = TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.BeforeFieldInit;
             var type = new TypeDefinition("", className, classAttributes);
             type.BaseType = baseType.HasGenericParameters ? baseType.MakeGenericInstanceType(genericArguments.ToArray()) : baseType;
-            var ctor = baseType.Resolve().GetConstructors().First(c => !c.HasParameters);
-            var ctorCall = new MethodReference(ctor.Name, baseType.Module.ImportReference(ctor.ReturnType))
+            var ctor = module.ImportReference(baseType.Resolve().GetConstructors().First(c => !c.HasParameters)).Resolve();
+            var ctorCall = new MethodReference(ctor.Name, module.ImportReference(ctor.ReturnType))
             {
                 DeclaringType = type.BaseType,
                 HasThis = ctor.HasThis,
@@ -215,6 +217,15 @@ namespace GenericSerializeReference
             nestedType.BaseType = type.Module.ImportReference(typeof(object));
             type.NestedTypes.Add(nestedType);
             return nestedType;
+        }
+
+        public static IEnumerable<CustomAttribute> GetAttributesOf<T>([NotNull] this ICustomAttributeProvider provider) where T : Attribute
+        {
+            return provider.HasCustomAttributes ?
+                provider.CustomAttributes.Where(IsAttributeOf) :
+                Enumerable.Empty<CustomAttribute>();
+
+            static bool IsAttributeOf(CustomAttribute attribute) => attribute.AttributeType.FullName == typeof(T).FullName;
         }
     }
 }

@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using UnityEditor;
 using UnityEditor.Compilation;
-using UnityEngine;
-using FieldAttributes = Mono.Cecil.FieldAttributes;
+using Debug = UnityEngine.Debug;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
 
 namespace GenericSerializeReference.Library
@@ -16,97 +17,39 @@ namespace GenericSerializeReference.Library
     [InitializeOnLoad]
     public static class LibraryCodeGen
     {
-        public static string GetCurrentFilePath([System.Runtime.CompilerServices.CallerFilePath] string fileName = null)
-        {
-            return fileName;
-        }
+        internal const string AssemblyName = "GenericSerializeReference.Library";
+        private const string _assemblyFile = AssemblyName + ".dll";
+
+        private static HashSet<string> _compiledAssemblies = new HashSet<string>();
 
         static LibraryCodeGen()
         {
-        //     CompilationPipeline.compilationFinished -= OnCompilationFinished;
-        //     CompilationPipeline.compilationFinished += OnCompilationFinished;
-        //
-        //     CompilationPipeline.assemblyCompilationFinished -= Log;
-        //     CompilationPipeline.assemblyCompilationFinished += Log;
-        // }
-        //
-        // static void OnCompilationFinished(object _)
-        // {
-            Debug.Log("finished");
-            try
+            CompilationPipeline.compilationStarted -= OnCompilationStarted;
+            CompilationPipeline.compilationStarted += OnCompilationStarted;
+
+            CompilationPipeline.compilationFinished -= OnCompilationFinished;
+            CompilationPipeline.compilationFinished += OnCompilationFinished;
+
+            CompilationPipeline.assemblyCompilationFinished -= OnAssemblyCompilationFinished;
+            CompilationPipeline.assemblyCompilationFinished += OnAssemblyCompilationFinished;
+
+            static void OnAssemblyCompilationFinished(string assembly, CompilerMessage[] _)
             {
-                EditorApplication.LockReloadAssemblies();
+                _compiledAssemblies.Add(Path.GetFileName(assembly));
+            }
 
-                const string assemblyName = "";
+            static void OnCompilationStarted(object _)
+            {
+                _compiledAssemblies.Clear();
+            }
 
-                var assemblyPath = $"{Path.GetDirectoryName(GetCurrentFilePath())}/../GenericSerializeReference.Library.CodeGen.dll";
-                var resolver = new DefaultAssemblyResolver();
-                resolver.AddSearchDirectory(Path.GetDirectoryName(typeof(LibraryCodeGen).Assembly.Location));
-                var readerParameters = new ReaderParameters {AssemblyResolver = resolver, ReadWrite = true, ThrowIfSymbolsAreNotMatching = false};
-                using var assembly = AssemblyDefinition.ReadAssembly(assemblyPath, readerParameters);
-                var properties = InterfaceOnlyProperties().ToArray();
-                var types = properties.Select(t => t.property.PropertyType.GetGenericTypeDefinition())
-                        .SelectMany(genericType => TypeCache.GetTypesDerivedFrom(genericType))
-                        .Select(type => assembly.MainModule.ImportReference(type).Resolve())
-                    ;
-                var typeTree = new TypeTree(types);
-                // var field = new FieldDefinition("test", FieldAttributes.Private, assembly.MainModule.ImportReference(typeof(string)));
-                // codeGenType.Fields.Add(field);
-
-                foreach (var baseType in properties.Select(t =>
-                    assembly.MainModule.ImportReference(t.property.PropertyType)))
+            static void OnCompilationFinished(object _)
+            {
+                if (!_compiledAssemblies.Contains(_assemblyFile))
                 {
-                    var wrapper = new TypeDefinition(
-                        ""
-                        , $"<GenericSerializeReference>__{baseType.FullName.Replace('.', '_')}"
-                        , TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.NotPublic | TypeAttributes.BeforeFieldInit
-                    );
-                    wrapper.BaseType = assembly.MainModule.ImportReference(typeof(object));
-
-                    assembly.MainModule.Types.Add(wrapper);
-                    // var derived = typeTree.GetOrCreateAllDerivedReference(baseType);
-                    // var genericArguments = derived.IsGenericInstance
-                    //     ? ((GenericInstanceType) derived).GenericArguments
-                    //     : (IEnumerable<TypeReference>)Array.Empty<TypeReference>()
-                    // ;
+                    var file = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName(AssemblyName);
+                    AssetDatabase.ImportAsset(file, ImportAssetOptions.ForceUpdate);
                 }
-
-                assembly.Write();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning(ex);
-            }
-            finally
-            {
-                EditorApplication.UnlockReloadAssemblies();
-            }
-
-            static IEnumerable<(PropertyInfo property, GenericSerializeReferenceAttribute attribute)> InterfaceOnlyProperties()
-            {
-                return from asm in AppDomain.CurrentDomain.GetAssemblies()
-                    from type in IgnoreException(asm.GetTypes, Array.Empty<Type>())
-                    from propertyInfo in IgnoreException(
-                        () => type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                        , Array.Empty<PropertyInfo>())
-                    from attribute in IgnoreException(
-                        propertyInfo.GetCustomAttributes<GenericSerializeReferenceAttribute>
-                        , Array.Empty<GenericSerializeReferenceAttribute>())
-                    where attribute.GenerateMode == GenericSerializeReferenceAttribute.Mode.InterfaceOnly
-                    where propertyInfo.PropertyType.IsGenericType
-                    select (propertyInfo, attribute);
-            }
-        }
-
-        static T IgnoreException<T>(this Func<T> func, T @default = default)
-        {
-            try
-            {
-                return func();
-            }
-            catch
-            {
-                return @default;
             }
         }
     }

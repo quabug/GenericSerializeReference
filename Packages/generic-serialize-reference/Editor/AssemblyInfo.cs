@@ -1,4 +1,4 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("GenericSerializeReference.Tests")]
-[assembly: InternalsVisibleTo("GenericSerializeReference.Library.Editor")]
+[assembly: InternalsVisibleTo("Unity.GenericSerializeReference.Library.CodeGen")]

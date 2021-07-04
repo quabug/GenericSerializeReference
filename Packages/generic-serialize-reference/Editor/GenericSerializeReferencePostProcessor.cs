@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using JetBrains.Annotations;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -30,8 +29,8 @@ namespace GenericSerializeReference
         public override ILPostProcessResult Process(ICompiledAssembly compiledAssembly)
         {
             var logger = new ILPostProcessorLogger(new List<DiagnosticMessage>());
-            var (assembly, referenceAssemblies) = LoadAssemblyDefinition(compiledAssembly, name => name.StartsWith("Library/ScriptAssemblies"));
-            var loggerAttributes = GetAttributesOf<GenericSerializeReferenceLoggerAttribute>(assembly);
+            var (assembly, referenceAssemblies) = LoadAssemblyDefinition(compiledAssembly, name => name.StartsWith("Library"));
+            var loggerAttributes = assembly.GetAttributesOf<GenericSerializeReferenceLoggerAttribute>();
             if (loggerAttributes.Any()) logger.LogLevel = (LogLevel)loggerAttributes.First().ConstructorArguments[0].Value;
             logger.Info($"process GenericSerializeReference on {assembly.Name.Name}({string.Join(",", referenceAssemblies.Select(r => r.Name.Name))})");
             try
@@ -56,7 +55,9 @@ namespace GenericSerializeReference
                     SymbolWriterProvider = new PortablePdbWriterProvider(), SymbolStream = pdb, WriteSymbols = true
                 };
                 assembly.Write(pe, writerParameters);
-                return new ILPostProcessResult(new InMemoryAssembly(pe.ToArray(), pdb.ToArray()), logger.Messages);
+                // assembly.Write();
+                var inMemoryAssembly = new InMemoryAssembly(pe.ToArray(), pdb.ToArray());
+                return new ILPostProcessResult(inMemoryAssembly, logger.Messages);
             }
             finally
             {
@@ -73,7 +74,7 @@ namespace GenericSerializeReference
                 where type.IsClass && !type.IsAbstract
                 from property in type.Properties.ToArray() // able to change `Properties` during looping
                 where property.PropertyType.IsGenericInstance
-                from attribute in GetAttributesOf<GenericSerializeReferenceAttribute>(property)
+                from attribute in property.GetAttributesOf<GenericSerializeReferenceAttribute>()
                 select (type, property, attribute)
             )
             {
@@ -221,7 +222,7 @@ namespace GenericSerializeReference
             }
         }
 
-        private static (AssemblyDefinition compiled, AssemblyDefinition[] references)
+        internal static (AssemblyDefinition compiled, AssemblyDefinition[] references)
             LoadAssemblyDefinition(ICompiledAssembly compiledAssembly, Func<string, bool> referencePredicate)
         {
             var resolver = new PostProcessorAssemblyResolver(compiledAssembly.References);
@@ -238,15 +239,6 @@ namespace GenericSerializeReference
             var assembly = AssemblyDefinition.ReadAssembly(peStream, readerParameters);
             var referenceAssemblies = compiledAssembly.References.Where(referencePredicate).Select(resolver.Resolve).ToArray();
             return (assembly, referenceAssemblies);
-        }
-
-        private IEnumerable<CustomAttribute> GetAttributesOf<T>([NotNull] ICustomAttributeProvider provider) where T : Attribute
-        {
-            return provider.HasCustomAttributes ?
-                provider.CustomAttributes.Where(IsAttributeOf) :
-                Enumerable.Empty<CustomAttribute>();
-
-            static bool IsAttributeOf(CustomAttribute attribute) => attribute.AttributeType.FullName == typeof(T).FullName;
         }
     }
 }

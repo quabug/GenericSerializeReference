@@ -1,5 +1,5 @@
 {
-    "name": "GenericSerializeReference.Library.Editor",
+    "name": "Unity.GenericSerializeReference.Library.CodeGen",
     "rootNamespace": "",
     "references": [
         "GUID:e68bcd447d2cc4be2b6d31311e6ca7e9",
@@ -18,7 +18,7 @@
         "Mono.Cecil.Pdb.dll",
         "Mono.Cecil.Rocks.dll"
     ],
-    "autoReferenced": true,
+    "autoReferenced": false,
     "defineConstraints": [],
     "versionDefines": [],
     "noEngineReferences": false

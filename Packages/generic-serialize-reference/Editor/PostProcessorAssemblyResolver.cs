@@ -14,9 +14,9 @@ namespace GenericSerializeReference
         private readonly IDictionary<string, AssemblyDefinition> _cache = new Dictionary<string, AssemblyDefinition>();
         private readonly IReadOnlyList<string> _references;
 
-        public PostProcessorAssemblyResolver([NotNull] IReadOnlyList<string> references)
+        public PostProcessorAssemblyResolver([NotNull] IEnumerable<string> references)
         {
-            _references = references;
+            _references = references.ToArray();
         }
 
         public void Dispose()

@@ -1,4 +1,5 @@
 namespace GenericSerializeReference.Library.CodeGen
 {
-    internal static class _ {}
+    internal static class ___ {}
+
 }
