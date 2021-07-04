@@ -7,7 +7,7 @@ public class MyGenericObject<T> : IMyInterface<T> {}
 public struct StructWillNotShow : IMyInterface<int> {}
 public class MyMonoBehavior : MonoBehaviour
 {
-    [GenericSerializeReference]
+    [GenericSerializeReference(mode: GenerateMode.Embed)]
     public IMyInterface<int> Value { get; set; }
     //
     // [GenericSerializeReference("_serialized")]

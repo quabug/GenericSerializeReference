@@ -74,7 +74,6 @@ namespace GenericSerializeReference
                 from type in module.GetAllTypes()
                 where type.IsClass && !type.IsAbstract
                 from property in type.Properties.ToArray() // able to change `Properties` during looping
-                where property.PropertyType.IsGenericInstance
                 from attribute in property.GetAttributesOf<GenericSerializeReferenceAttribute>()
                 select (type, property, attribute)
             )
@@ -91,14 +90,24 @@ namespace GenericSerializeReference
                     continue;
                 }
 
-                var wrapperName = $"<{property.Name}>__generic_serialize_reference";
-                var wrapper = property.DeclaringType.CreateNestedStaticPrivateClass(wrapperName);
-                var serializedFieldInterface = CreateInterface(wrapper);
-                CreateDerivedClasses(property, wrapper, serializedFieldInterface);
+                TypeReference baseInterface;
+                var mode = (GenerateMode)attribute.ConstructorArguments[1].Value;
+                if (mode == GenerateMode.Embed)
+                {
+                    var wrapperName = $"<{property.Name}>__generic_serialize_reference";
+                    var wrapper = property.DeclaringType.CreateNestedStaticPrivateClass(wrapperName);
+                    baseInterface = CreateInterface(wrapper);
+                    CreateDerivedClasses(property, wrapper, baseInterface);
+                }
+                else
+                {
+                    baseInterface = module.ImportReference(typeof(IBase));
+                }
 
-                logger.Info($"generate nested class with interface {serializedFieldInterface.FullName}");
+                logger.Info($"generate nested class with interface {baseInterface.FullName}");
                 var fieldNamePrefix = (string)attribute.ConstructorArguments[0].Value;
-                GenerateField(module, property, serializedFieldInterface, fieldNamePrefix);
+                GenerateField(module, property, baseInterface, fieldNamePrefix);
+
                 modified = true;
             }
             return modified;
@@ -115,7 +124,7 @@ namespace GenericSerializeReference
                 return baseInterface;
             }
 
-            void CreateDerivedClasses(PropertyDefinition property, TypeDefinition wrapper, TypeDefinition baseInterface)
+            void CreateDerivedClasses(PropertyDefinition property, TypeDefinition wrapper, TypeReference baseInterface)
             {
                 logger.Debug($"get derived {property.PropertyType.Module} {property.PropertyType} {property.PropertyType.Resolve()}");
                 foreach (var derived in typeTree.GetOrCreateAllDerivedReference(property.PropertyType))
@@ -145,7 +154,7 @@ namespace GenericSerializeReference
         internal static void GenerateField(
             ModuleDefinition module,
             PropertyDefinition property,
-            TypeDefinition fieldType,
+            TypeReference fieldType,
             string fieldNamePrefix)
         {
             var serializedField = CreateSerializeReferenceField(module, property, fieldType, fieldNamePrefix);
@@ -168,7 +177,8 @@ namespace GenericSerializeReference
                 , @interface
             );
             serializedField.AddCustomAttribute<SerializeReference>(module);
-            serializedField.AddCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>(module);
+            var attribute = serializedField.AddCustomAttribute<GenericSerializeReferenceGeneratedFieldAttribute>(module, typeof(Type));
+            attribute.ConstructorArguments.Add(new CustomAttributeArgument(module.ImportReference(typeof(Type)), property.PropertyType));
             property.DeclaringType.Fields.Add(serializedField);
             return serializedField;
         }

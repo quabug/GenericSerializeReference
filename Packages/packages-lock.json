@@ -8,15 +8,6 @@
         "com.unity.nuget.mono-cecil": "1.10.1"
       }
     },
-    "com.quabug.generic-serialize-reference-library-codegen": {
-      "version": "file:generic-serialize-reference-library-gen",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.nuget.mono-cecil": "0.1.6-preview.2",
-        "com.quabug.generic-serialize-reference": "1.2.0"
-      }
-    },
     "com.unity.ext.nunit": {
       "version": "1.0.6",
       "depth": 1,

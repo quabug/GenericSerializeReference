@@ -8,5 +8,9 @@ using UnityEngine;
 namespace GenericSerializeReference
 {
     [AttributeUsage(AttributeTargets.Field)]
-    internal class GenericSerializeReferenceGeneratedFieldAttribute : PropertyAttribute {}
+    internal class GenericSerializeReferenceGeneratedFieldAttribute : PropertyAttribute
+    {
+        public Type PropertyType { get; }
+        public GenericSerializeReferenceGeneratedFieldAttribute(Type propertyType) => PropertyType = propertyType;
+    }
 }

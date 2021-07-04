@@ -1,7 +1,9 @@
 {
     "name": "GenericSerializeReference.Sample.Library.Interface",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "GUID:535461a790301fe4fa3992f73817cb6f"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

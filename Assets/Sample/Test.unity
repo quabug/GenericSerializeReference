@@ -250,9 +250,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e141599402ff44f8de6aef9ccd07f2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  __Value:
+  __Int:
     id: 0
+  __Float:
+    id: 1
   references:
     version: 1
     00000000:
-      type: {class: , ns: , asm: }
+      type: {class: ILibInterface`1<System_Int32>/LibGenericObject, ns: <GenericSerializeReference>, asm: Assembly-CSharp}
+    00000001:
+      type: {class: ILibInterface`1<System_Single>/LibGenericObject_2, ns: <GenericSerializeReference>, asm: Assembly-CSharp}

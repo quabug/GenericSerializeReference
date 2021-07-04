@@ -10,7 +10,7 @@ using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
 using UnityEngine;
 
-namespace GenericSerializeReference.Library
+namespace GenericSerializeReference
 {
     public class AssemblyCSharpPostProcessor : ILPostProcessor
     {
@@ -63,40 +63,48 @@ namespace GenericSerializeReference.Library
         {
             var modified = false;
             var typeTree = new TypeTree(types);
+            var wrappers = new Dictionary<TypeReference, TypeDefinition>();
             foreach (var (type, property, attribute) in
                 from type in types
                 where type.IsClass && !type.IsAbstract
                 from property in type.Properties
                 where property.PropertyType.IsGenericInstance
-                from attribute in property.GetAttributesOf<GenericSerializeReferenceInAssemblyCSharpAttribute>()
+                from attribute in property.GetAttributesOf<GenericSerializeReferenceAttribute>()
+                where IsAssemblyCSharpMode(attribute)
                 select (type, property, attribute)
             )
             {
-                var baseInterface = module.ImportReference((TypeDefinition)attribute.ConstructorArguments[0].Value);
+                var baseInterface = module.ImportReference(typeof(IBase));
                 var baseGeneric = property.PropertyType;
 
-                var wrapper = new TypeDefinition(
-                    "<GenericSerializeReference>." + type.FullName.Replace('.', '_')
-                    , $"{property.Name}"
-                    , TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Public | TypeAttributes.BeforeFieldInit
-                );
-                module.Types.Add(wrapper);
-
-                foreach (var derived in typeTree
-                    .GetOrCreateAllDerivedReference(baseGeneric)
-                    .Select(module.ImportReference))
+                if (!wrappers.TryGetValue(baseGeneric, out var wrapper))
                 {
-                    var generated = CreateDerived(module, wrapper, derived, baseInterface);
-                    if (generated != null)
+                    wrapper = new TypeDefinition(
+                        "<GenericSerializeReference>" + baseGeneric.Namespace,
+                        baseGeneric.FullName.Replace('.', '_'),
+                        TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Public | TypeAttributes.BeforeFieldInit
+                    );
+                    wrappers[baseGeneric] = wrapper;
+
+                    foreach (var derived in typeTree
+                        .GetOrCreateAllDerivedReference(baseGeneric)
+                        .Select(module.ImportReference))
                     {
-                        wrapper.NestedTypes.Add(generated);
-                        modified = true;
+                        var generated = CreateDerived(wrapper, derived, baseInterface);
+                        if (generated != null)
+                        {
+                            wrapper.NestedTypes.Add(generated);
+                            modified = true;
+                        }
                     }
                 }
+                module.Types.Add(wrapper);
+
+                modified = true;
             }
             return modified;
 
-            TypeDefinition CreateDerived(ModuleDefinition module, TypeDefinition wrapper, TypeReference derived, TypeReference baseInterface)
+            TypeDefinition CreateDerived(TypeDefinition wrapper, TypeReference derived, TypeReference baseInterface)
             {
                 var genericArguments = derived.IsGenericInstance
                     ? ((GenericInstanceType) derived).GenericArguments
@@ -128,6 +136,12 @@ namespace GenericSerializeReference.Library
                 }
                 return null;
             }
+        }
+
+        static bool IsAssemblyCSharpMode(CustomAttribute attribute)
+        {
+            var mode = (GenerateMode) attribute.ConstructorArguments[1].Value;
+            return mode == GenerateMode.AssemblyCSharp;
         }
     }
 }

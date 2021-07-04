@@ -14,25 +14,25 @@ namespace GenericSerializeReference.Sample
             public int V;
         }
 
-        [GenericSerializeReference]
+        [GenericSerializeReference(mode: GenerateMode.Embed)]
         public MultipleGeneric.IInterface<int, float> IntFloat { get; set; }
 
-        [GenericSerializeReference]
+        [GenericSerializeReference(mode: GenerateMode.Embed)]
         public MultipleGeneric.IInterface<float, int> FloatInt { get; set; }
 
-        [GenericSerializeReference]
+        [GenericSerializeReference(mode: GenerateMode.Embed)]
         public MultipleGeneric.IInterface<int, int> IntInt { get; set; }
 
-        [GenericSerializeReference]
+        [GenericSerializeReference(mode: GenerateMode.Embed)]
         public SingleGeneric.IInterface<int> Int { get; set; }
 
-        [GenericSerializeReference]
+        [GenericSerializeReference(mode: GenerateMode.Embed)]
         public SingleGeneric.IInterface<double> Double { get; set; }
 
-        [GenericSerializeReference]
+        [GenericSerializeReference(mode: GenerateMode.Embed)]
         public SingleGeneric.Object<int> IntObject { get; set; }
 
-        [GenericSerializeReference]
+        [GenericSerializeReference(mode: GenerateMode.Embed)]
         public MultipleGeneric.Object<int, int> IntIntObject { get; set; }
 
         private void Awake()
