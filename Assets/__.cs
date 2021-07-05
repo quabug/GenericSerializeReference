@@ -1,4 +1,5 @@
-namespace GenericSerializeReference.Library.CodeGen
+namespace GenericSerializeReference
 {
-    internal static class ___ {}
+    // just make sure there has `AssemblyCSharp.dll`
+    static class ___ {}
 }

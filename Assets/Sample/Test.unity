@@ -257,6 +257,6 @@ MonoBehaviour:
   references:
     version: 1
     00000000:
-      type: {class: ILibInterface`1<System_Int32>/LibGenericObject, ns: <GenericSerializeReference>, asm: Assembly-CSharp}
+      type: {class: ILibInterface`1<System_Int32>/LibIntObject, ns: <GenericSerializeReference>, asm: Assembly-CSharp}
     00000001:
       type: {class: ILibInterface`1<System_Single>/LibGenericObject_2, ns: <GenericSerializeReference>, asm: Assembly-CSharp}
