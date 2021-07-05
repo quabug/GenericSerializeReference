@@ -28,15 +28,91 @@ namespace GenericSerializeReference
 
         public override ILPostProcessResult Process(ICompiledAssembly compiledAssembly)
         {
-            var logger = new ILPostProcessorLogger(new List<DiagnosticMessage>());
             using var resolver = new PostProcessorAssemblyResolver(compiledAssembly.References);
             using var assembly = compiledAssembly.LoadAssembly(resolver);
-            var referenceAssemblies = compiledAssembly.LoadLibraryAssemblies(resolver).ToArray();
+            var logger = assembly.CreateLogger();
+            logger.Info($"process GenericSerializeReference on {assembly.Name.Name}({string.Join(",", compiledAssembly.References.Where(r => r.StartsWith("Library")))})");
+            var modified = Process(compiledAssembly, assembly, resolver, logger);
+            if (!modified) return new ILPostProcessResult(null, logger.Messages);
+
+            var pe = new MemoryStream();
+            var pdb = new MemoryStream();
+            var writerParameters = new WriterParameters
+            {
+                SymbolWriterProvider = new PortablePdbWriterProvider(), SymbolStream = pdb, WriteSymbols = true
+            };
+            assembly.Write(pe, writerParameters);
+            // assembly.Write();
+            var inMemoryAssembly = new InMemoryAssembly(pe.ToArray(), pdb.ToArray());
+            return new ILPostProcessResult(inMemoryAssembly, logger.Messages);
+        }
+
+        private bool Process(ICompiledAssembly compiledAssembly, AssemblyDefinition assembly, PostProcessorAssemblyResolver resolver, ILPostProcessorLogger logger)
+        {
+            var module = assembly.MainModule;
+            IReadOnlyList<AssemblyDefinition> referenceAssemblies = Array.Empty<AssemblyDefinition>();
+            TypeTree typeTree = null;
+
             try
             {
-                var loggerAttributes = assembly.GetAttributesOf<GenericSerializeReferenceLoggerAttribute>();
-                if (loggerAttributes.Any()) logger.LogLevel = (LogLevel)loggerAttributes.First().ConstructorArguments[0].Value;
-                logger.Info($"process GenericSerializeReference on {assembly.Name.Name}({string.Join(",", referenceAssemblies.Select(r => r.Name.Name))})");
+                return ProcessProperties();
+            }
+            finally
+            {
+                foreach (var @ref in referenceAssemblies) @ref.Dispose();
+            }
+
+            bool ProcessProperties()
+            {
+                var modified = false;
+                foreach (var (type, property, attribute) in
+                    from type in module.GetAllTypes()
+                    where type.IsClass && !type.IsAbstract
+                    from property in type.Properties.ToArray() // able to change `Properties` during looping
+                    from attribute in property.GetAttributesOf<GenericSerializeReferenceAttribute>()
+                    select (type, property, attribute)
+                )
+                {
+                    if (property.GetMethod == null)
+                    {
+                        logger.Warning($"Cannot process on property {property} without getter");
+                        continue;
+                    }
+
+                    if (!property.PropertyType.IsGenericInstance)
+                    {
+                        logger.Warning($"Cannot process on property {property} with non-generic type {property.PropertyType.Name}");
+                        continue;
+                    }
+
+                    TypeReference baseInterface;
+                    var mode = (GenerateMode)attribute.ConstructorArguments[1].Value;
+                    if (mode == GenerateMode.Embed)
+                    {
+                        var wrapperName = $"<{property.Name}>__generic_serialize_reference";
+                        var wrapper = property.DeclaringType.CreateNestedStaticPrivateClass(wrapperName);
+                        baseInterface = CreateInterface(wrapper);
+                        CreateDerivedClasses(property, wrapper, baseInterface);
+                    }
+                    else
+                    {
+                        baseInterface = module.ImportReference(typeof(IBase));
+                    }
+
+                    logger.Info($"generate nested class with interface {baseInterface.FullName}");
+                    var fieldNamePrefix = (string)attribute.ConstructorArguments[0].Value;
+                    GenerateField(module, property, baseInterface, fieldNamePrefix);
+
+                    modified = true;
+                }
+                return modified;
+            }
+
+            void CreateTypeTree()
+            {
+                if (typeTree != null) return;
+
+                referenceAssemblies = compiledAssembly.LoadLibraryAssemblies(resolver).ToArray();
                 var allTypes = referenceAssemblies.Append(assembly)
                     .Where(asm => !asm.Name.Name.StartsWith("Unity.")
                                   && !asm.Name.Name.StartsWith("UnityEditor.")
@@ -45,87 +121,13 @@ namespace GenericSerializeReference
                     .SelectMany(asm => asm.MainModule.GetAllTypes())
                 ;
                 logger.Debug($"all types: {string.Join(", ", allTypes.Select(t => t.Name))}");
-                var typeTree = new TypeTree(allTypes);
+                typeTree = new TypeTree(allTypes);
                 logger.Debug($"tree: {typeTree}");
-                var modified = Process(assembly.MainModule, typeTree, logger);
-                if (!modified) return new ILPostProcessResult(null, logger.Messages);
-
-                var pe = new MemoryStream();
-                var pdb = new MemoryStream();
-                var writerParameters = new WriterParameters
-                {
-                    SymbolWriterProvider = new PortablePdbWriterProvider(), SymbolStream = pdb, WriteSymbols = true
-                };
-                assembly.Write(pe, writerParameters);
-                // assembly.Write();
-                var inMemoryAssembly = new InMemoryAssembly(pe.ToArray(), pdb.ToArray());
-                return new ILPostProcessResult(inMemoryAssembly, logger.Messages);
-            }
-            finally
-            {
-                foreach (var reference in referenceAssemblies) reference.Dispose();
-            }
-        }
-
-        private bool Process(ModuleDefinition module, TypeTree typeTree, ILPostProcessorLogger logger)
-        {
-            var modified = false;
-            foreach (var (type, property, attribute) in
-                from type in module.GetAllTypes()
-                where type.IsClass && !type.IsAbstract
-                from property in type.Properties.ToArray() // able to change `Properties` during looping
-                from attribute in property.GetAttributesOf<GenericSerializeReferenceAttribute>()
-                select (type, property, attribute)
-            )
-            {
-                if (property.GetMethod == null)
-                {
-                    logger.Warning($"Cannot process on property {property} without getter");
-                    continue;
-                }
-
-                if (!property.PropertyType.IsGenericInstance)
-                {
-                    logger.Warning($"Cannot process on property {property} with non-generic type {property.PropertyType.Name}");
-                    continue;
-                }
-
-                TypeReference baseInterface;
-                var mode = (GenerateMode)attribute.ConstructorArguments[1].Value;
-                if (mode == GenerateMode.Embed)
-                {
-                    var wrapperName = $"<{property.Name}>__generic_serialize_reference";
-                    var wrapper = property.DeclaringType.CreateNestedStaticPrivateClass(wrapperName);
-                    baseInterface = CreateInterface(wrapper);
-                    CreateDerivedClasses(property, wrapper, baseInterface);
-                }
-                else
-                {
-                    baseInterface = module.ImportReference(typeof(IBase));
-                }
-
-                logger.Info($"generate nested class with interface {baseInterface.FullName}");
-                var fieldNamePrefix = (string)attribute.ConstructorArguments[0].Value;
-                GenerateField(module, property, baseInterface, fieldNamePrefix);
-
-                modified = true;
-            }
-            return modified;
-
-            TypeDefinition CreateInterface(TypeDefinition wrapper, string interfaceName = "IBase")
-            {
-                // .class interface nested public abstract auto ansi
-                var interfaceAttributes = TypeAttributes.Class |
-                                          TypeAttributes.Interface |
-                                          TypeAttributes.NestedPublic |
-                                          TypeAttributes.Abstract;
-                var baseInterface = new TypeDefinition("", interfaceName, interfaceAttributes);
-                wrapper.NestedTypes.Add(baseInterface);
-                return baseInterface;
             }
 
             void CreateDerivedClasses(PropertyDefinition property, TypeDefinition wrapper, TypeReference baseInterface)
             {
+                if (typeTree == null) CreateTypeTree();
                 logger.Debug($"get derived {property.PropertyType.Module} {property.PropertyType} {property.PropertyType.Resolve()}");
                 foreach (var derived in typeTree.GetOrCreateAllDerivedReference(property.PropertyType))
                 {
@@ -151,7 +153,19 @@ namespace GenericSerializeReference
             }
         }
 
-        internal static void GenerateField(
+        private TypeDefinition CreateInterface(TypeDefinition wrapper, string interfaceName = "IBase")
+        {
+            // .class interface nested public abstract auto ansi
+            var interfaceAttributes = TypeAttributes.Class |
+                                      TypeAttributes.Interface |
+                                      TypeAttributes.NestedPublic |
+                                      TypeAttributes.Abstract;
+            var baseInterface = new TypeDefinition("", interfaceName, interfaceAttributes);
+            wrapper.NestedTypes.Add(baseInterface);
+            return baseInterface;
+        }
+
+        private static void GenerateField(
             ModuleDefinition module,
             PropertyDefinition property,
             TypeReference fieldType,
@@ -162,7 +176,7 @@ namespace GenericSerializeReference
             InjectSetter(property, serializedField);
         }
 
-        internal static FieldDefinition CreateSerializeReferenceField(
+        private static FieldDefinition CreateSerializeReferenceField(
             ModuleDefinition module,
             PropertyDefinition property,
             TypeReference @interface,
@@ -183,7 +197,7 @@ namespace GenericSerializeReference
             return serializedField;
         }
 
-        internal static void InjectGetter(PropertyDefinition property, FieldDefinition serializedField)
+        private static void InjectGetter(PropertyDefinition property, FieldDefinition serializedField)
         {
             // --------add--------
             // IL_0000: ldarg.0      // this
@@ -206,7 +220,7 @@ namespace GenericSerializeReference
             instructions.Insert(4, Instruction.Create(OpCodes.Pop));
         }
 
-        internal static void InjectSetter(PropertyDefinition property, FieldDefinition serializedField)
+        private static void InjectSetter(PropertyDefinition property, FieldDefinition serializedField)
         {
             //IL_0000: ldarg.0      // this
             //IL_0001: ldarg.1      // 'value'

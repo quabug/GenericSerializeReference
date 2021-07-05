@@ -1,7 +1,7 @@
 {
   "name": "com.quabug.generic-serialize-reference",
   "description": "Automatically alter generic field of SerializeReference into its non-generic form",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "unity": "2020.2",
   "displayName": "GenericSerializeReference",
   "samples": [
