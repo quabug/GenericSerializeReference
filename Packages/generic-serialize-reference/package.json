@@ -12,17 +12,17 @@
     },
     {
       "displayName": "Embed",
-      "description": "Generate embeded code into class assembly",
+      "description": "Generate code into class assembly",
       "path": "Samples~/Embed"
     },
     {
       "displayName": "AssemblyCSharp",
-      "description": "Generate embeded code into AssemblyCSharp.dll",
+      "description": "Generate code into AssemblyCSharp.dll",
       "path": "Samples~/AssemblyCSharp"
     },
     {
-      "displayName": "GenericSerializeReference.OverrideAssemblyCSharp",
-      "description": "Generate embeded code into assembly of GenericSerializeReference.OverrideAssemblyCSharp",
+      "displayName": "OverrideAssemblyCSharp",
+      "description": "Generate code into assembly of GenericSerializeReference.OverrideAssemblyCSharp",
       "path": "Samples~/OverrideAssemblyCSharp"
     }
   ],

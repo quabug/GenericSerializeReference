@@ -2,18 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using JetBrains.Annotations;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
-using UnityEngine;
 
 namespace GenericSerializeReference
 {
     public class AssemblyCSharpPostProcessor : ILPostProcessor
     {
+        private const string _overrideAssemblyCSharp = "GenericSerializeReference.OverrideAssemblyCSharp";
+
         public override ILPostProcessor GetInstance()
         {
             return this;
@@ -21,15 +21,19 @@ namespace GenericSerializeReference
 
         public override bool WillProcess(ICompiledAssembly compiledAssembly)
         {
-            return compiledAssembly.Name == "Assembly-CSharp";
+            if (compiledAssembly.Name == _overrideAssemblyCSharp) return true;
+            var overrideDll = $"{_overrideAssemblyCSharp}.dll";
+            var hasOverride = compiledAssembly.References.Any(@ref => @ref.EndsWith(overrideDll));
+            return compiledAssembly.Name == "Assembly-CSharp" && !hasOverride;
         }
 
         public override ILPostProcessResult Process(ICompiledAssembly compiledAssembly)
         {
-            var logger = new ILPostProcessorLogger(new List<DiagnosticMessage>());
             using var resolver = new PostProcessorAssemblyResolver(compiledAssembly.References);
             using var assembly = compiledAssembly.LoadAssembly(resolver);
             var referenceAssemblies = compiledAssembly.LoadLibraryAssemblies(resolver).ToArray();
+            var logger = assembly.CreateLogger();
+            logger.Info($"process GenericSerializeReference.AssemblyCSharp on {assembly.Name.Name}({string.Join(",", compiledAssembly.References.Where(r => r.StartsWith("Library")))})");
 
             try
             {
@@ -93,14 +97,13 @@ namespace GenericSerializeReference
                         var generated = CreateDerived(wrapper, derived, baseInterface);
                         if (generated != null)
                         {
+                            logger.Debug($"generate {derived.FullName}");
                             wrapper.NestedTypes.Add(generated);
                             modified = true;
                         }
                     }
                 }
                 module.Types.Add(wrapper);
-
-                modified = true;
             }
             return modified;
 
