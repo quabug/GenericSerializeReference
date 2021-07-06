@@ -1,0 +1,16 @@
+{
+    "name": "GenericSerializeReference.Sample.AssemblyCSharp.Referenced",
+    "rootNamespace": "",
+    "references": [
+        "GUID:bb7127c6ea4789d41b77cdef13d93652"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
