@@ -31,6 +31,8 @@ Unity3D 2020.2+ (not guaranteed to work below 2020.2)
 ## How it works
 
 ### AssemblyCSharp Mode
+Either generate derived classes into a custom assembly named _GenericSerializeReference.OverrideAssemblyCSharp_ or _AssemblyCSharp.dll_ if there's no such custom assembly.
+
 ```c#
 // Generate derived types into AssemblyCSharp.dll
 public class MyMonoBehavior : MonoBehaviour
@@ -74,6 +76,8 @@ namespace <GenericSerializeReference>
 ```
 
 ### Embed Mode
+Embed generated derived classes beside the property with `GenericSerializeReferenceAttribute`.
+
 ```c#
 // Embed into current class
 public class MyMonoBehavior : MonoBehaviour
